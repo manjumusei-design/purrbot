@@ -19,3 +19,18 @@ def _normalized_tokens(text: str) -> list[str]:
             tokens.append(stripped)
     return tokens
 
+def cat_word_in(text: str) -> bool:
+    return any(token in _CAT_WORDS for token in _normalized_tokens(text))
+
+
+
+def duck_word_in(text: str) -> bool:
+    return any(token in _DUCK_WORDS for token in _normalized_tokens(text))
+
+
+def status_code_in(text: str) -> int | None:
+    for raw_code in _STATUS_CODE_PATTERN.findall(text):
+        code = int(raw_code)
+        if code in _STATUS_CODES:
+            return code
+    return None
