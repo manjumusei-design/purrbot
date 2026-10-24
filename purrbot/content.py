@@ -102,6 +102,7 @@ CAT_FACT_BUTTON_ACTION_ID = "cat_fact_button"
 MEOW_BUTTON_ACTION_ID = "meow_button"
 
 CAT_GIF_REPLY = "Coming soon! nyanyanya"
+CATIFY_EMPTY_HINT = "nothing to catify yet, mrrp — try /catify hello there :3"
 OPTOUT_CONFIRM = "cats muted for you >:( )"
 OPTIN_CONFIRM = "purrbot hears your meows again :3"
 HTTPCAT_NOT_A_NUMBER = "that's not a number, prr prr patapim — status codes are digits :3"

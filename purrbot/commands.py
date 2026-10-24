@@ -18,11 +18,14 @@ def register(app, store: OptOutStore) -> None:
         say(text=content.DUCK_PICTURE_TITLE, blocks=images.duck_picture_blocks())
 
     @app.command("/catify")
-    def catify_command(ack, say, command) -> None:
+    def catify_command(ack, say, respond, command) -> None:
         ack()
-        said = catify(command.get("text", "").strip())
+        raw_text = command.get("text", "").strip()
+        if not raw_text:
+            respond(text=content.CATIFY_EMPTY_HINT)
+            return
+        said = catify(raw_text)
         say(text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
-
 
     @app.command("/httpcat")
     def httpcat(ack, say, respond, command) -> None:
