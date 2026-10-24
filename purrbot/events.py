@@ -15,12 +15,12 @@ def register(app, store: OptOutStore) -> None:
             return
         if event.get("subtype"):
             return
+        if _already_seen(event):
+            return
         if event.get("channel_type") == "im":
             _answer_dm(event, say, client, persona)
             return
         if event.get("user") and store.is_opted_out(event["user"]):
-            return
-        if _already_seen(event):
             return
         _reflex(event, say, client)
 
