@@ -11,7 +11,7 @@ def main() -> int:
         print("purrbot needs BOT_TOKEN and APP_TOKEN in .env — see .env.example nya", file=sys.stderr)
         return 1
     app = App(token=config.BOT_TOKEN)
-    store = OptOutStore(config.OPTOUTS_PATH)
+    store = OptOutStore("optouts.json")
     events.register(app, store)
     commands.register(app, store)
     SocketModeHandler(app, config.APP_TOKEN).start()

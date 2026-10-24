@@ -11,5 +11,3 @@ AI_MODEL = os.environ.get("AI_MODEL", "qwen/qwen3-32b")
 AI_URL = os.environ.get("AI_URL", "https://ai.hackclub.com/proxy/v1")
 AI_CONTEXT_MESSAGE_LIMIT = 10
 AI_TIMEOUT_SECONDS = 30
-
-OPTOUTS_PATH = os.environ.get("OPTOUTS_PATH", "optouts.json")
