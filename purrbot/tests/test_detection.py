@@ -8,7 +8,12 @@ def test_cat_word_hits(text):
     assert detection.cat_word_in(text)
 
 
-@pytest.mark.parametrize("text", ["meowing", "category", "merrrrp"])
+@pytest.mark.parametrize("text", ["(>w<)", "(=^･^=)!", "nya~", ":3c"])
+def test_cat_emoticon_hits(text):
+    assert detection.cat_word_in(text)
+
+
+@pytest.mark.parametrize("text", ["meowing", "category", "merrrrp", "cat104"])
 def test_cat_word_misses(text):
     assert not detection.cat_word_in(text)
 

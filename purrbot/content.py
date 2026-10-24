@@ -3,7 +3,9 @@ DUCK_EMOJI = "duck"
 
 CAT_WORDS = [
     ":3",
+    ":3c"
     "=^.^=",
+    "=^･^=",
     ">w<",
     "^w^",
     ">^..^<",
@@ -21,6 +23,7 @@ CAT_WORDS = [
     "prr",
     "prrr",
     "nya",
+    "nya~",
     "nyaa",
     "nyan",
     "nyanyanya",
