@@ -52,8 +52,7 @@ def _reflex(event, say, client) -> None:
         code = detection.status_code_in(text)
         if code is None:
             return
-        status_text = content.STATUS_PICTURE_TITLE.format(code=code, phrase=images.status_code_phrase(code))
-        _thread_picture(say, event, images.status_picture_blocks(code), status_text)
+        _thread_picture(say, event, images.status_picture_blocks(code), images.status_picture_title(code))
         _react(client, event, content.CAT_EMOJI)
 
 

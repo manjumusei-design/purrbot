@@ -4,6 +4,8 @@ from purrbot import content, images
 from purrbot.catify import catify
 from purrbot.optout import OptOutStore
 
+def _fresh_cat_fact_text() -> str:
+    return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
 
 def register(app, store: OptOutStore) -> None:
     @app.command("/meow")
@@ -47,17 +49,17 @@ def register(app, store: OptOutStore) -> None:
     @app.command("/cat_fact")
     def cat_fact(ack, say) -> None:
         ack()
-        fact = images.fetch_cat_fact()
-        say(text=content.CAT_FACT_PREFIX + fact, blocks=images.cat_fact_blocks(fact))
+        fact_text = _fresh_cat_fact_text()
+        say(text=fact_text, blocks=images.cat_fact_blocks(fact_text))
 
     @app.action(content.CAT_FACT_BUTTON_ACTION_ID)
     def refresh_cat_fact(ack, respond) -> None:
         ack()
-        fact = images.fetch_cat_fact()
+        fact_text = _fresh_cat_fact_text()
         respond(
             replace_original=True,
-            text=content.CAT_FACT_PREFIX + fact,
-            blocks=images.cat_fact_blocks(fact),
+            text=fact_text,
+            blocks=images.cat_fact_blocks(fact_text),
         )
 
     @app.command("/meow_button")
