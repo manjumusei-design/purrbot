@@ -32,6 +32,7 @@ class CatPersona:
                 return content.CAT_BRAIN_TREATS_EMPTY_REPLY
             if response.status_code == RATE_LIMITED_STATUS:
                 return content.CAT_BRAIN_OVERLOADED_REPLY
-            return response.json()["choices"][0]["message"]["content"]
+            reply = response.json()["choices"][0]["message"]["content"]
         except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
             return content.CAT_BRAIN_FRIED_REPLY
+        return reply if isinstance(reply, str) and reply else content.CAT_BRAIN_FRIED_REPLY
