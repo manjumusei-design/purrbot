@@ -1,0 +1,88 @@
+import random
+
+from purrbot import content, images
+from purrbot.catify import catify
+from purrbot.optout import OptOutStore
+
+
+def register(app, store: OptOutStore) -> None:
+    @app.command("/meow")
+    def meow(ack, say) -> None:
+        ack()
+        say(text=content.CAT_PICTURE_TITLE, block=images.cat_picture_blocks())
+
+    @app.command("/quack")
+    def quack(ack, say) -> None:
+        say(text=content.DUCK_PICTURE_TITLE, blocks=images.duck_picture_blocks())
+
+    @app.command("/catify")
+    def catify_command(ack, say, command) -> None:
+        ack()
+        said = catify(command.get("text", "").strip())
+        say(text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
+
+
+    @app.command("/httpcat")
+    def httpcat(ack, say, respond, command) -> None:
+        ack()
+        raw_code = command.get("text", "").strip()
+        if not raw_code:
+            respond(text=content.HTTPCAT_MISSING_CODE)
+            return
+        if not raw_code.isdigit():
+            respond(text=content.HTTPCAT_NOT_A_NUMBER)
+            return
+        code = int(raw_code)
+        if code not in content.STATUS_CODES:
+            respond(text=content.HTTPCAT_UNKNOWN_CODE)
+            return
+        say(blocks=images.status_picture_blocks(code))
+
+    @app.command("/cat_gif")
+    def cat_gif(ack, say) -> None:
+        ack()
+        say(text=content.CAT_GIF_REPLY, mrkdwn=False)
+
+
+    @app.command("/cat_fact")
+    def cat_fact(ack, say) -> None:
+        ack()
+        fact = images.fetch_cat_fact()
+        say(text=content.CAT_FACT_PREFIX + fact, blocks=images.cat_fact_blocks(fact))
+
+    @app.action(content.CAT_FACT_BUTTON_ACTION_ID)
+    def refresh_cat_fact(ack, respond) -> None:
+        ack()
+        fact = images.fetch_cat_fact()
+        respond(
+            replace_original=True,
+            text=content.CAT_FACT_PREFIX + fact,
+            blocks=images.cat_fact_blocks(fact),
+        )
+
+    @app.command("/meow_button")
+    def meow_button(ack, say) -> None:
+        ack()
+        say(text=content.MEOW_BUTTON_LABEL, blocks=images.meow_button_blocks())
+
+    @app.action(content.MEOW_BUTTON_ACTION_ID)
+    def press_meow_button(ack, body, say) -> None:
+        ack()
+        message = body["message"]
+        say(
+            text=random.choice(content.BUTTON_PHRASES),
+            thread_ts=message.get("thread_ts") or message["ts"],
+            mrkdwn=False,
+        )
+
+    @app.command("/purrbot-optout")
+    def optout(ack, respond, command) -> None:
+        ack()
+        store.add(command["user_id"])
+        respond(text=content.OPTOUT_CONFIRM)
+
+    @app.command("/purrbot-optin")
+    def optin(ack, respond, command) -> None:
+        ack()
+        store.remove(command["user_id"])
+        respond(text=content.OPTIN_CONFIRM)
