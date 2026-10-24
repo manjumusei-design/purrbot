@@ -39,3 +39,43 @@ def _already_seen(event) -> bool:
         _seen_message_ids.pop(next(inter(_seen_message_ids)))
     return False
 
+
+def _reflex(event, say, client) -> None:
+    text = event.get("text", "")
+    if detection.cat_word_in(text):
+        _thread_picture(say, event, images.cat_picture_blocks())
+        _react(client, event, content.CAT_EMOJI)
+    elif detection.duck_word_in(text):
+        _thread_picture(say, event, images.duck_picture_blocks())
+        _react(client, event, content.DUCK_EMOJI)
+    else:
+        code = detection.status_code_in(text)
+        if code is None:
+            return
+        status_text = content.STATUS_PICTURE_TITLE.format(code=code, phrase=images.status_code_phrase(code))
+        _thread_picture(say, event, images.status_picture_blocks(code), status_text)
+        _react(client, event, content.CAT_EMOJI)
+
+
+def _thread_picture(say, event, blocks, text: str | None = None) -> None:
+    fallback = {"text": text} if text  is not None else {}
+    say(blocks = blocks, thread_ts = event["ts"], **fallback)
+
+def _react(client, event, emoji: str) -> None:
+    client.reactions_add(channel=event["channel"], name=emoji, timestamp=event["ts"])
+
+def _answer_dm(event, say,client, persona: ai.CatPersona | None) -> None:
+    if persona is None:
+        say(text=content.CAT_BRAIN_UNPLUGGED_REPLY)
+        return
+    history = client.conversations_history(
+        channel=event["channel"], limit=config.AI_CONTEXT_MESSAGE_LIMIT
+    )
+    messages = [
+        {
+            "role": "assistant" if message.get("bot_id") else "user",
+            "content": message.get("text", ""),
+        }
+        for message in reversed(history.get("messages", []))
+    ]
+    say(text=persona.reply(messages))
