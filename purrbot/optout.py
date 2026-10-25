@@ -38,11 +38,15 @@ class OptOutStore:
         ) as temp_file:
             temp_path = temp_file.name
             try:
-                json.dump(sorted(self.user_ids), temp_file, indent = 4)
+                json.dump(sorted(self.user_ids), temp_file, indent=4)
                 temp_file.flush()
                 os.fsync(temp_file.fileno())
             except Exception:
                 os.unlink(temp_path)
                 raise
         os.replace(temp_path, self.path)
-        
+        directory_fd = os.open(self.path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
