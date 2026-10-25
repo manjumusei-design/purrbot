@@ -91,6 +91,23 @@ STATUS_CODE_PHRASES = { # this is for my troubleshooting and was generated with 
     599: "Network Connect Timeout",
 }
 
+
+CAT_PICTURE_TITLES = [
+    "Meow! :3",
+    "a cat has arrived, as request nya~",
+    "toe beans incoming :3,"
+    "one (1) fresh cat, still warm",
+    "mrrp! picture acquired >w<",
+]
+
+DUCK_PICTURE_TITLES = [
+    "Quack! :3",
+    "duck delivery, no refunds",
+    "a duck, slightly confused",
+    "quack quack, behold",
+    "webbed feet, premium quality :3",
+]
+
 PICTURE_ALT_TEXT = ":3"
 CAT_PICTURE_TITLE = "Meow! :3"
 DUCK_PICTURE_TITLE = "Quack! :3"

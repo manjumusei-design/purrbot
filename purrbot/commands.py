@@ -11,11 +11,11 @@ def register(app, store: OptOutStore) -> None:
     @app.command("/meow")
     def meow(ack, say) -> None:
         ack()
-        say(text=content.CAT_PICTURE_TITLE, block=images.cat_picture_blocks())
+        say(text=content.CAT_PICTURE_TITLE,  blocks=images.cat_picture_blocks(content.CAT_PICTURE_TITLE))
 
     @app.command("/quack")
     def quack(ack, say) -> None:
-        say(text=content.DUCK_PICTURE_TITLE, blocks=images.duck_picture_blocks())
+        say(text=content.DUCK_PICTURE_TITLE, blocks=images.duck_picture_blocks(content.DUCK_PICTURE_TITLE))
 
     @app.command("/catify")
     def catify_command(ack, say, respond, command) -> None:

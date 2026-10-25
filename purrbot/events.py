@@ -1,5 +1,6 @@
 from purrbot import ai, config, content, detection, images
 from purrbot.optout import OptOutStore
+from purrbot.titles import PictureTitles
 
 DEDUP_WINDOW_SIZE = 1000
 _seen_message_ids: dict[str, None] = {}
@@ -7,7 +8,7 @@ _seen_message_ids: dict[str, None] = {}
 
 def register(app, store: OptOutStore) -> None:
     persona = ai.CatPersona(config.AI_API_KEY, config.AI_MODEL, config.AI_URL) if config.AI_API_KEY else None
-
+    titles = PictureTitles()
 
     @app.event("message")
     def handle_message(event, say, client) -> None:
@@ -22,7 +23,7 @@ def register(app, store: OptOutStore) -> None:
             return
         if event.get("user") and store.is_opted_out(event["user"]):
             return
-        _reflex(event, say, client)
+        _reflex(event, say, client, titles)
 
 
     @app.event("app_mention")
@@ -40,26 +41,40 @@ def _already_seen(event) -> bool:
     return False
 
 
-def _reflex(event, say, client) -> None:
+def _reflex(event, say, client, titles: PictureTitles) -> None:
     text = event.get("text", "")
     if detection.cat_word_in(text):
-        _thread_picture(say, event, images.cat_picture_blocks())
+        _post_cat(say, event["ts"], titles)
         _react(client, event, content.CAT_EMOJI)
     elif detection.duck_word_in(text):
-        _thread_picture(say, event, images.duck_picture_blocks())
+        _post_duck(say, event["ts"], titles)
         _react(client, event, content.DUCK_EMOJI)
     else:
         code = detection.status_code_in(text)
         if code is None:
             return
-        _thread_picture(say, event, images.status_picture_blocks(code), images.status_picture_title(code))
+        _thread_picture(
+            say,
+            event["ts"],
+            images.status_picture_blocks(code),
+            images.status_picture_title(code),
+        )
         _react(client, event, content.CAT_EMOJI)
 
 
-def _thread_picture(say, event, blocks, text: str | None = None) -> None:
-    fallback = {"text": text} if text  is not None else {}
-    say(blocks = blocks, thread_ts = event["ts"], **fallback)
+def _post_cat(say, thread_ts: str, titles: PictureTitles) -> None:
+    _thread_picture(say, thread_ts, images.cat_picture_blocks(titles.next("cat")))
 
+
+def _post_duck(say, thread_ts: str, titles: PictureTitles) -> None:
+    _thread_picture(say, thread_ts, images.duck_picture_blocks(titles.next("duck")))
+
+
+def _thread_picture(say, thread_ts: str, blocks, text: str | None = None) -> None:
+    fallback = {"text": text} if text is not None else {}
+    say(blocks=blocks, thread_ts=thread_ts, **fallback)
+
+    
 def _react(client, event, emoji: str) -> None:
     client.reactions_add(channel=event["channel"], name=emoji, timestamp=event["ts"])
 
