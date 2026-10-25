@@ -46,7 +46,7 @@ def register(app, store: OptOutStore) -> None:
     @app.command("/cat_gif")
     def cat_gif(ack, say) -> None:
         ack()
-        say(text=content.CAT_GIF_REPLY, mrkdwn=False)
+        say(text=content.CAT_GIF_PICTURE_TITLE, blocks=images.cat_gif_picture_blocks())
 
 
     @app.command("/cat_fact")
