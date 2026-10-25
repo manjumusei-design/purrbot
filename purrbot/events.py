@@ -1,12 +1,13 @@
 from purrbot import ai, config, content, detection, images
 from purrbot.optout import OptOutStore
+from purrbot.shush import ShushStore
 from purrbot.titles import PictureTitles
 
 DEDUP_WINDOW_SIZE = 1000
 _seen_message_ids: dict[str, None] = {}
 
 
-def register(app, store: OptOutStore) -> None:
+def register(app, store: OptOutStore, shush: ShushStore)) -> None:
     persona = ai.CatPersona(config.AI_API_KEY, config.AI_MODEL, config.AI_URL) if config.AI_API_KEY else None
     titles = PictureTitles()
 
@@ -14,6 +15,8 @@ def register(app, store: OptOutStore) -> None:
 
     def _reflex_allowed(user_id: str | None, channel_id: str, dedupe_key: str) -> bool:
         if user_id and store.is_opted_out(user_id):
+            return False
+        if shush.is_muted(channel_id):
             return False
         return not _already_seen(dedupe_key)
     

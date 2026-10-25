@@ -1,13 +1,15 @@
 import random
+from datetime import datetime
 
 from purrbot import content, images
 from purrbot.catify import catify
 from purrbot.optout import OptOutStore
+from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
 
 def _fresh_cat_fact_text() -> str:
     return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
 
-def register(app, store: OptOutStore) -> None:
+def register(app, store: OptOutStore, shush: ShushStore) -> None:
     @app.command("/meow")
     def meow(ack, say) -> None:
         ack()
@@ -96,3 +98,26 @@ def register(app, store: OptOutStore) -> None:
         ack()
         store.remove(command["user_id"])
         respond(text=content.OPTIN_CONFIRM)
+
+
+
+    @app.command("/purrbot-shush")
+    def shush_command(ack, respond, command) -> None:
+        ack()
+        raw_minutes = command.get("text", "").strip()
+        if not raw_minutes:
+            minutes = DEFAULT_SHUSH_MINUTES
+        else:
+            try:
+                minutes = int(raw_minutes)
+            except ValueError:
+                respond(text=content.SHUSH_BAD_MINUTES)
+                return
+        channel_id = command["channel_id"]
+        if minutes == 0:
+            shush.unmute(channel_id)
+            respond(text=content.SHUSH_BAD_MINUTES)
+            return
+        until = shush.mute(channel_id, minutes)
+        until_text = datetime.fromtimestamp(until).strftime("%H:%M")
+        respond(text=content.SHUSH_CONFIRM.format(time=until_text))
