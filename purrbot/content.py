@@ -118,6 +118,20 @@ BUTTON_PHRASES = [
     "one (1) head bonk, freshly warmed",
 ]
 
+HELP_TEXT = """hi hi, PurrBot here :3 
+
+reflexes: say a cat word(meow, nya :3, ...) and i bring a cat picture;
+say quack or duck for a duck; drop a 3 digit http code for that code's cat.
+react with :cat or :duck or any related emoji and the same thing happens in that thread.
+
+on demand: /meow, /quack, /cat_gif, /httpcat <code>, /catify <text>, /cat_fact,
+/meow_button, /purrbot-help.
+
+control: /purrbot-optout stops my reflexes on you, /purrbot-optin brings them back,
+/purrbot-shush <minutes> quiets a whole channel (0 undoes it).
+
+dms still get the cat brain if it's plugged in nya~"""
+
 WELCOME_MESSAGE = """eerm... hiii :3
 *flops sideways leading with toe-beans*
 I'm PurrBot! I live here now and I meow back at anyone who meows first. 

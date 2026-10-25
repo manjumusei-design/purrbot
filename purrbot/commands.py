@@ -80,6 +80,11 @@ def register(app, store: OptOutStore) -> None:
             mrkdwn=False,
         )
 
+    @app.command(:/purrbot-help)
+    def help_command(ack, respond) -> None:
+        ack()
+        respond(text=content.HELP_TEXT, mrkdwn = False)
+
     @app.command("/purrbot-optout")
     def optout(ack, respond, command) -> None:
         ack()
