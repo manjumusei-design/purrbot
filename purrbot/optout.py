@@ -24,7 +24,10 @@ class OptOutStore:
         if not self.path.exists():
             self.user_ids = set()
             return
-        self.user_ids = set(json.loads(self.path.read_text(encoding="utf-8")))
+        try:
+            self.user_ids = set(json.loads(self.path.read_text(encoding="utf-8")))
+        except (OSError, TypeError, ValueError):
+            self.user_ids = set()
 
     def _flush(self) -> None:
         with tempfile.NamedTemporaryFile(
@@ -33,8 +36,13 @@ class OptOutStore:
             dir=self.path.parent,
             delete=False,
         ) as temp_file:
-            json.dump(sorted(self.user_ids), temp_file)
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
             temp_path = temp_file.name
+            try:
+                json.dump(sorted(self.user_ids), temp_file, indent = 4)
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+            except Exception:
+                os.unlink(temp_path)
+                raise
         os.replace(temp_path, self.path)
+        

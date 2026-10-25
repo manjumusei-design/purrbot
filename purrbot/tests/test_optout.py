@@ -42,3 +42,11 @@ def test_file_content_is_sorted_json(tmp_path):
     store.add("U1")
     assert json.loads(path.read_text()) == ["U1", "U2"]
 
+
+def test_corrupted_file_starts_empty(tmp_path):
+    path = tmp_path / "optouts.json"
+    path.write_text("{not json")
+    store = OptOutStore(str(path))
+    assert not store.is_opted_out("U1")
+    store.add("U1")
+    assert json.loads(path.read_text()) == ["U1"]
