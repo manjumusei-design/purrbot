@@ -1,3 +1,5 @@
+import threading
+
 from purrbot import ai, config, content, detection, images
 from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
@@ -5,6 +7,7 @@ from purrbot.titles import PictureTitles
 
 DEDUP_WINDOW_SIZE = 1000
 _seen_message_ids: dict[str, None] = {}
+_seen_lock = threading.Lock()
 
 
 def register(app, store: OptOutStore, shush: ShushStore)) -> None:
@@ -58,11 +61,12 @@ def _message_key(event) -> str:
 
 
 def _already_seen(message_id: str) -> bool:
-    if message_id in _seen_message_ids:
-        return True
-    _seen_message_ids[message_id] = None
-    while len(_seen_message_ids) > DEDUPE_WINDOW_SIZE:
-        _seen_message_ids.pop(next(iter(_seen_message_ids)))
+    with _seen_lock:
+        if message_id in _seen_message_ids:
+            return True
+        _seen_message_ids[message_id] = None
+        while len(_seen_message_ids) > DEDUPE_WINDOW_SIZE:
+            _seen_message_ids.pop(next(iter(_seen_message_ids)))
     return False
 
 
