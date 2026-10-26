@@ -49,8 +49,12 @@ def register(app, store: OptOutStore, shush: ShushStore)) -> None:
         item = event["item"]
         if item.get("type") != "message":
             return
+        reaction = event["reaction"].split("::")[0]
         if not _reflex_allowed(event.get("user"), item["channel"], event["event_ts"]):
+            return
+        _reaction_reflex(item, reaction, say, titles)
 
+        
     @app.event("app_mention")
     def handle_app_mention(event, say) -> None:
         say(text = content.WELCOME_MESSAGE, thread_ts=event["ts"])
