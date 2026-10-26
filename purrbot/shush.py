@@ -24,4 +24,7 @@ class ShushStore:
         until = self._until.get(channel_id)
         if until is None:
             return False
+        if self._now() >=until:
+            self._until.pop(channel_id, None)
+            return False
         return True
