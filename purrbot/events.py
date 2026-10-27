@@ -1,6 +1,6 @@
 import threading
 
-from purrbot import ai, config, content, detection, images
+from purrbot import ai, config, content, detection, images, providers
 from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
 from purrbot.titles import PictureTitles
@@ -96,11 +96,13 @@ def _reflex(event, say, client, titles: PictureTitles) -> None:
 
 
 def _post_cat(say, thread_ts: str, titles: PictureTitles) -> None:
-    _thread_picture(say, thread_ts, images.cat_picture_blocks(titles.next("cat")))
+    picture = providers.cat_images.picture()
+    _thread_picture(say, thread_ts, images.cat_picture_blocks(titles.next("cat"), picture))
 
 
 def _post_duck(say, thread_ts: str, titles: PictureTitles) -> None:
-    _thread_picture(say, thread_ts, images.duck_picture_blocks(titles.next("duck")))
+    picture = providers.duck_images.picture()
+    _thread_picture(say, thread_ts, images.duck_picture_blocks(titles.next("duck"), picture))
 
 
 def _reaction_reflex(item, reaction: str, say, titles: PictureTitles) -> None:

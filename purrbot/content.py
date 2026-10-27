@@ -119,6 +119,12 @@ MEOW_BUTTON_LABEL = "Click me :3"
 CAT_FACT_BUTTON_ACTION_ID = "cat_fact_button"
 MEOW_BUTTON_ACTION_ID = "meow_button"
 
+STATIC_CAT_IMAGE_URLS = [
+    "https://cataas.com/cat/cute?width=600",
+    "https://cataas.com/cat/orange?width=600",
+]
+
+
 CATIFY_EMPTY_HINT = "nothing to catify yet, mrrp — try /catify hello there :3"
 OPTOUT_CONFIRM = "cats muted for you >:( )"
 OPTIN_CONFIRM = "purrbot hears your meows again :3"
@@ -128,6 +134,13 @@ SHUSH_BAD_MINUTES = "minutes should be a whole number, mrrp — try /purrbot-shu
 HTTPCAT_NOT_A_NUMBER = "that's not a number, prr prr patapim — status codes are digits :3"
 HTTPCAT_UNKNOWN_CODE = "http.cat doesn't hold a cat for that code yet, mrrp >:3"
 HTTPCAT_MISSING_CODE = "currently waiting for a status code — try /httpcat 418 :3"
+
+HEALTH_TITLE = "purrbot health report :3"
+HEALTH_LINE = "{name}: {state} breaker, last good {success}, last bad {failure}"
+HEALTH_NEVER = "never"
+HEALTH_SECONDS_AGO = "{seconds}s ago"
+HEALTH_MINUTES_AGO = "{minutes}m ago"
+
 
 BUTTON_PHRASES = [
     "mrrp mrow :3",
@@ -145,7 +158,7 @@ say quack or duck for a duck; drop a 3 digit http code for that code's cat.
 react with :cat or :duck or any related emoji and the same thing happens in that thread.
 
 on demand: /meow, /quack, /cat_gif, /httpcat <code>, /catify <text>, /cat_fact,
-/meow_button, /purrbot-help.
+/meow_button, /purrbot-health, /purrbot-help.
 
 control: /purrbot-optout stops my reflexes on you, /purrbot-optin brings them back,
 /purrbot-shush <minutes> quiets a whole channel (0 undoes it).

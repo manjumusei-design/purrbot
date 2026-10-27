@@ -3,10 +3,9 @@ import http
 import requests
 
 from purrbot import content
+from purrbot.providers import Picture
 
-CAT_IMAGE_DISCOVERY_URL = "https://cataas.com/cat/cute/says/Meow?json=true"
 CAT_GIF_DISCOVERY_URL = "https://cataas.com/cat/gif?json=true"
-DUCK_IMAGE_DISCOVERY_URL = "https://random-d.uk/api/quack"
 CAT_FACT_URL = "https://catfact.ninja/fact"
 STATUS_IMAGE_URL_FORMAT = "https://http.cat/{code}"
 HTTP_TIMEOUT_SECONDS = 10
@@ -28,9 +27,8 @@ def _picture_blocks(title: str, image_url: str) -> list[dict]:
         }
     ]
 
-def cat_picture_blocks(title: str) -> list[dict]:
-    discovery = requests.get(CAT_IMAGE_DISCOVERY_URL, timeout=HTTP_TIMEOUT_SECONDS)
-    return _picture_blocks(title, discovery.json()["url"])
+def cat_picture_blocks(title: str, picture: Picture) -> list[dict]:
+    return _picture_blocks(title, picture.url)
 
 
 def cat_gif_picture_blocks() -> list[dict]:
@@ -38,9 +36,8 @@ def cat_gif_picture_blocks() -> list[dict]:
     return _picture_blocks(content.CAT_GIF_PICTURE_TITLE, discovery.json()["url"])
 
 
-def duck_picture_blocks(title: str) -> list[dict]:
-    discovery = requests.get(DUCK_IMAGE_DISCOVERY_URL, timeout=HTTP_TIMEOUT_SECONDS)
-    return _picture_blocks(title, discovery.json()["url"])
+def duck_picture_blocks(title: str, picture: Picture) -> list[dict]:
+    return _picture_blocks(title, picture.url)
 
 def status_picture_title(code: int) -> str:
     return content.STATUS_PICTURE_TITLE.format(code=code, phrase=status_code_phrase(code))

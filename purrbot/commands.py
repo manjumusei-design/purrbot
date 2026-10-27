@@ -1,7 +1,8 @@
 import random
+import time
 from datetime import datetime
 
-from purrbot import content, images
+from purrbot import content, images, providers
 from purrbot.catify import catify
 from purrbot.optout import OptOutStore
 from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
@@ -9,15 +10,34 @@ from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
 def _fresh_cat_fact_text() -> str:
     return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
 
+
+
+def _age_text(timestamp: float | None, now: float) -> str:
+    if timestamp is None:
+        return content.HEALTH_NEVER
+    elapsed = max(0, int(now - timestamp))
+    if elapsed < 60:
+        return content.HEALTH_SECONDS_AGO.format(seconds=elapsed)
+    return content.HEALTH_MINUTES_AGO.format(minutes=elapsed // 60)
+
+
 def register(app, store: OptOutStore, shush: ShushStore) -> None:
     @app.command("/meow")
     def meow(ack, say) -> None:
         ack()
-        say(text=content.CAT_PICTURE_TITLE,  blocks=images.cat_picture_blocks(content.CAT_PICTURE_TITLE))
+        picture = providers.cat_images.picture()
+        say(
+            text=content.CAT_PICTURE_TITLE,
+            blocks=images.cat_picture_blocks(content.CAT_PICTURE_TITLE, picture),
+        )
 
     @app.command("/quack")
     def quack(ack, say) -> None:
-        say(text=content.DUCK_PICTURE_TITLE, blocks=images.duck_picture_blocks(content.DUCK_PICTURE_TITLE))
+        picture = providers.duck_images.picture()
+        say(
+            text=content.DUCK_PICTURE_TITLE,
+            blocks=images.duck_picture_blocks(content.DUCK_PICTURE_TITLE, picture),
+        )
 
     @app.command("/catify")
     def catify_command(ack, say, respond, command) -> None:
@@ -121,3 +141,19 @@ def register(app, store: OptOutStore, shush: ShushStore) -> None:
         until = shush.mute(channel_id, minutes)
         until_text = datetime.fromtimestamp(until).strftime("%H:%M")
         respond(text=content.SHUSH_CONFIRM.format(time=until_text))
+
+    @app.command("/purrbot-health")
+    def health_command(ack, respond) -> None:
+        ack()
+        now = time.time()
+        lines = [content.HEALTH_TITLE]
+        for provider in (providers.cat_images, providers.duck_images):
+            lines.append(
+                content.HEALTH_LINE.format(
+                    name=provider.name,
+                    state=provider.breaker.state,
+                    success=_age_text(provider.last_success, now),
+                    failure=_age_text(provider.last_failure, now),
+                )
+            )
+        respond(text="\n".join(lines), mrkdwn = False)
