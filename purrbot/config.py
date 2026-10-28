@@ -11,3 +11,8 @@ AI_MODEL = os.environ.get("AI_MODEL", "qwen/qwen3-32b")
 AI_URL = os.environ.get("AI_URL", "https://ai.hackclub.com/proxy/v1")
 AI_CONTEXT_MESSAGE_LIMIT = 10
 AI_TIMEOUT_SECONDS = 30
+
+PURRBOT_STATE_DIR = os.environ.get("PURRBOT_STATE_DIR", ".")
+
+def state_path(name: str) -> str:
+    return os.path.join(PURRBOT_STATE_DIR, name)

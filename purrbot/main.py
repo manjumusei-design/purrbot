@@ -1,3 +1,4 @@
+import os
 import sys
 
 from slack_bolt import App
@@ -11,7 +12,9 @@ def main() -> int:
     if not config.BOT_TOKEN or not config.APP_TOKEN:
         print("purrbot needs BOT_TOKEN and APP_TOKEN in .env — see .env.example nya", file=sys.stderr)
         return 1
+    os.makedirs(config.PURRBOT_STATE_DIR, exist_ok=True)
     app = App(token=config.BOT_TOKEN)
+    store = OptOutStore(config.state_path("optouts.json"))
     shush = ShushStore()
     events.register(app, store, shush)
     commands.register(app, store, shush)
