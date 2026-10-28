@@ -23,18 +23,23 @@ def _age_text(timestamp: float | None, now: float) -> str:
 
 def register(app, store: OptOutStore, shush: ShushStore) -> None:
     @app.command("/meow")
-    def meow(ack, say) -> None:
+    def meow(ack, say, command) -> None:
         ack()
         picture = providers.cat_images.picture()
-        say(
+        pacing.post(
+            say,
+            command["channel_id"],
             text=content.CAT_PICTURE_TITLE,
             blocks=images.cat_picture_blocks(content.CAT_PICTURE_TITLE, picture),
         )
 
     @app.command("/quack")
-    def quack(ack, say) -> None:
+    def quack(ack, say, command) -> None:
+        ack()
         picture = providers.duck_images.picture()
-        say(
+        pacing.post(
+            say,
+            command["channel_id"],
             text=content.DUCK_PICTURE_TITLE,
             blocks=images.duck_picture_blocks(content.DUCK_PICTURE_TITLE, picture),
         )
@@ -47,7 +52,7 @@ def register(app, store: OptOutStore, shush: ShushStore) -> None:
             respond(text=content.CATIFY_EMPTY_HINT)
             return
         said = catify(raw_text)
-        say(text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
+        pacing.post(say, command["channel_id"], text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
 
     @app.command("/httpcat")
     def httpcat(ack, say, respond, command) -> None:
@@ -63,19 +68,27 @@ def register(app, store: OptOutStore, shush: ShushStore) -> None:
         if code not in content.STATUS_CODES:
             respond(text=content.HTTPCAT_UNKNOWN_CODE)
             return
-        say(blocks=images.status_picture_blocks(code))
+        pacing.post(say, command["channel_id"], blocks=images.status_picture_blocks(code))
 
     @app.command("/cat_gif")
-    def cat_gif(ack, say) -> None:
+    def cat_gif(ack, say, command) -> None:
         ack()
-        say(text=content.CAT_GIF_PICTURE_TITLE, blocks=images.cat_gif_picture_blocks())
-
+        pacing.post(
+            say,
+            command["channel_id"],
+            text=content.CAT_GIF_PICTURE_TITLE,
+            blocks = images.cat_gif_picture_blocks(),
+        )
 
     @app.command("/cat_fact")
-    def cat_fact(ack, say) -> None:
+    def cat_fact(ack, say, command) -> None:
         ack()
-        fact_text = _fresh_cat_fact_text()
-        say(text=fact_text, blocks=images.cat_fact_blocks(fact_text))
+        pacing.post(
+            say,
+            command["channel_id"],
+            text=fact_text,
+            blocks=images.cat_fact_blocks(fact_text),
+        )
 
     @app.action(content.CAT_FACT_BUTTON_ACTION_ID)
     def refresh_cat_fact(ack, respond) -> None:
@@ -88,21 +101,29 @@ def register(app, store: OptOutStore, shush: ShushStore) -> None:
         )
 
     @app.command("/meow_button")
-    def meow_button(ack, say) -> None:
+    def meow_button(ack, say, command) -> None:
         ack()
-        say(text=content.MEOW_BUTTON_LABEL, blocks=images.meow_button_blocks())
+        picture = providers.cat_images.picture()
+        pacing.post(
+            say,
+            command["channel_id"],
+            text=content.MEOW_BUTTON_LABEL,
+            blocks=images.meow_button_blocks(),
+        )
 
     @app.action(content.MEOW_BUTTON_ACTION_ID)
     def press_meow_button(ack, body, say) -> None:
         ack()
         message = body["message"]
-        say(
+        pacing.post(
+            say,
+            body["channel"]["id"],
             text=random.choice(content.BUTTON_PHRASES),
             thread_ts=message.get("thread_ts") or message["ts"],
-            mrkdwn=False,
+            mrkdwn=False
         )
 
-    @app.command(:/purrbot-help)
+    @app.command("/purrbot-help")
     def help_command(ack, respond) -> None:
         ack()
         respond(text=content.HELP_TEXT, mrkdwn = False)

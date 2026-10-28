@@ -1,6 +1,6 @@
 import threading
 
-from purrbot import ai, config, content, detection, images, providers
+from purrbot import ai, config, content, detection, images, pacing, providers
 from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
 from purrbot.titles import PictureTitles
@@ -57,7 +57,7 @@ def register(app, store: OptOutStore, shush: ShushStore)) -> None:
         
     @app.event("app_mention")
     def handle_app_mention(event, say) -> None:
-        say(text = content.WELCOME_MESSAGE, thread_ts=event["ts"])
+        pacing.post(say, event["channel"], text=content.WELCOME_MESSAGE, thread_ts=event["ts"])
 
 
 def _message_key(event) -> str:
@@ -77,10 +77,10 @@ def _already_seen(message_id: str) -> bool:
 def _reflex(event, say, client, titles: PictureTitles) -> None:
     text = event.get("text", "")
     if detection.cat_word_in(text):
-        _post_cat(say, event["ts"], titles)
+        _post_cat(say, event["channel"], event["ts"], titles)
         _react(client, event, content.CAT_EMOJI)
     elif detection.duck_word_in(text):
-        _post_duck(say, event["ts"], titles)
+        _post_duck(say, event["channel"], event["ts"], titles)
         _react(client, event, content.DUCK_EMOJI)
     else:
         code = detection.status_code_in(text)
@@ -88,6 +88,7 @@ def _reflex(event, say, client, titles: PictureTitles) -> None:
             return
         _thread_picture(
             say,
+            event["channel"],
             event["ts"],
             images.status_picture_blocks(code),
             images.status_picture_title(code),
@@ -95,25 +96,41 @@ def _reflex(event, say, client, titles: PictureTitles) -> None:
         _react(client, event, content.CAT_EMOJI)
 
 
-def _post_cat(say, thread_ts: str, titles: PictureTitles) -> None:
+def _post_cat(say, channel_id: str, thread_ts: str, titles: PictureTitles) -> None:
     picture = providers.cat_images.picture()
-    _thread_picture(say, thread_ts, images.cat_picture_blocks(titles.next("cat"), picture))
+    _thread_picture(
+        say,
+        channel_id,
+        thread_ts,
+        images.cat_picture_blocks(titles.next("cat"), picture),
+    )
 
-
-def _post_duck(say, thread_ts: str, titles: PictureTitles) -> None:
+def _post_duck(say, channel_id: str, thread_ts: str, titles: PictureTitles) -> None:
     picture = providers.duck_images.picture()
-    _thread_picture(say, thread_ts, images.duck_picture_blocks(titles.next("duck"), picture))
-
+    _thread_picture(
+        say,
+        channel_id,
+        thread_ts,
+        images.duck_picture_blocks(titles.next("duck"), picture),
+    )
 
 def _reaction_reflex(item, reaction: str, say, titles: PictureTitles) -> None:
     if reaction == content.CAT_EMOJI:
-        _post_cat(say, item["ts"], titles)
+        _post_cat(say, item["channel"], item["ts"], titles)
     elif reaction == content.DUCK_EMOJI:
-        _post_duck(say, item["ts"], titles)
+        _post_duck(say, item["channel"], item["ts"], titles)
 
-def _thread_picture(say, thread_ts: str, blocks, text: str | None = None) -> None:
+
+def _thread_picture(
+    say,
+    channel_id: str,
+    thread_ts: str,
+    blocks,
+    text: str | None = None,
+) -> None:
     fallback = {"text": text} if text is not None else {}
-    say(blocks=blocks, thread_ts=thread_ts, **fallback)
+    pacing.post(say, channel_id, blocks=blocks, thread_ts=thread_ts, **fallback)
+
 
 
 def _react(client, event, emoji: str) -> None:
@@ -121,7 +138,7 @@ def _react(client, event, emoji: str) -> None:
 
 def _answer_dm(event, say,client, persona: ai.CatPersona | None) -> None:
     if persona is None:
-        say(text=content.CAT_BRAIN_UNPLUGGED_REPLY)
+        pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
         return
     history = client.conversations_history(
         channel=event["channel"], limit=config.AI_CONTEXT_MESSAGE_LIMIT
@@ -133,4 +150,4 @@ def _answer_dm(event, say,client, persona: ai.CatPersona | None) -> None:
         }
         for message in reversed(history.get("messages", []))
     ]
-    say(text=persona.reply(messages))
+    pacing.post(say, event["channel"], text=persona.reply(messages))
