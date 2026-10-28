@@ -5,6 +5,7 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from purrbot import commands, config, events
+from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
 from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
@@ -18,7 +19,9 @@ def main() -> int:
     store = OptOutStore(config.state_path("optouts.json"))
     shush = ShushStore()
     memory = ConversationMemory(config.state_path("memories.json"))
-    commands.register(app, store, shush)
+    event_log = EventLog(config.state_path("events.jsonl"))
+    events.register(app, store, shush, memory, event_log)
+    commands.register(app, store, shush, event_log)
     SocketModeHandler(app, config.APP_TOKEN).start()
     return 0
 
