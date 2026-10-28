@@ -1,6 +1,9 @@
 import threading
 
+from slack_sdk.errors import SlackApiError
+
 from purrbot import ai, config, content, detection, images, pacing, providers
+from purrbot.memory import ConversationMemory
 from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
 from purrbot.titles import PictureTitles
@@ -34,7 +37,7 @@ def register(app, store: OptOutStore, shush: ShushStore)) -> None:
         if is_dm and _already_seen(_message_key(event)):
             return
         if is_dm:
-            _answer_dm(event, say, client, persona)
+            _answer_dm(event, say, client, persona, memory)
             return
         if not _reflex_allowed(event.get("user"), event["channel"], _message_key(event)):
             return
@@ -136,18 +139,53 @@ def _thread_picture(
 def _react(client, event, emoji: str) -> None:
     client.reactions_add(channel=event["channel"], name=emoji, timestamp=event["ts"])
 
-def _answer_dm(event, say,client, persona: ai.CatPersona | None) -> None:
+def _answer_dm(
+        event,
+        say,
+        client,
+        persona: ai.CatPersona | None,
+        memory: ConversationMemory,
+) -> None:
+    user_id = event.get("user") or event["channel"]
     if persona is None:
         pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
         return
-    history = client.conversations_history(
-        channel=event["channel"], limit=config.AI_CONTEXT_MESSAGE_LIMIT
-    )
-    messages = [
-        {
-            "role": "assistant" if message.get("bot_id") else "user",
-            "content": message.get("text", ""),
-        }
-        for message in reversed(history.get("messages", []))
-    ]
-    pacing.post(say, event["channel"], text=persona.reply(messages))
+    if not memory.history(user_id):
+        _first_contact(memory, user_id, client, event)
+    memory.append(user_id, "user", event.get("text", ""))
+    memory.flush()
+    messages = memory.history(user_id)
+    reply = persona.reply(messages)
+    memory.append(user_id, "assistant", reply)
+    memory.flush()
+    messages = memory.history(user_id)
+    reply = persona.reply(messages)
+    memory.append(user_id, "assistant", reply)
+    memory.flush()
+    pacing.post(say, event["channel'], text=reply"])
+
+
+def _first_contact(memory: ConversationMemory, user_id: str, client, event) -> None:
+    try:
+        history = client.conversations_history(
+            channel=event["channel"], limit=config.AI_CONTEXT_MESSAGE_LIMIT
+        )
+    except SlackApiError:
+        return
+    _seed_memory(memory, user_id, history.get("messages", []), event["ts"])
+
+
+def _seed_memory(
+        memory: ConversationMemory,
+        user_id: str,
+        slack_messages,
+        current_ts: str,
+) -> None:
+    for message in reversed(slack_messages):
+        if message.get("ts") == current_ts:
+            continue
+        text = message.get("text")
+        if not text:
+            continue
+        role = "assistant" if message.get("bot_id") else "user"
+        memory.append(user_id, role, text)
