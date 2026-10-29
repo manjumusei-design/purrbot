@@ -4,6 +4,7 @@ from datetime import datetime
 
 from purrbot import content, images, providers
 from purrbot.catify import catify
+from purrbot.eventlog import EventLog
 from purrbot.optout import OptOutStore
 from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
 
@@ -22,27 +23,45 @@ def _age_text(timestamp: float | None, now: float) -> str:
 
 
 def register(app, store: OptOutStore, shush: ShushStore) -> None:
+    def _log_command(command, outcome: str = "ok") ->None:
+        event_log.record(
+            command["command"],
+            command.get("channel_id"),
+            command.get("user_id"),
+            outcome,
+        )
+
+    def _log_action(body, kind: str, outcome: str = "ok") -> None:
+        event_log.record(
+            kind,
+            body.get("channel", {}).get("id"),
+            body.get("user", {}).get("id"),
+            outcome,
+        )
+
     @app.command("/meow")
     def meow(ack, say, command) -> None:
         ack()
         picture = providers.cat_images.picture()
-        pacing.post(
+        posted = pacing.post(
             say,
             command["channel_id"],
             text=content.CAT_PICTURE_TITLE,
             blocks=images.cat_picture_blocks(content.CAT_PICTURE_TITLE, picture),
         )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.command("/quack")
     def quack(ack, say, command) -> None:
         ack()
         picture = providers.duck_images.picture()
-        pacing.post(
+        posted = pacing.post(
             say,
             command["channel_id"],
             text=content.DUCK_PICTURE_TITLE,
             blocks=images.duck_picture_blocks(content.DUCK_PICTURE_TITLE, picture),
         )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.command("/catify")
     def catify_command(ack, say, respond, command) -> None:

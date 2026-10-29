@@ -60,7 +60,7 @@ class ChannelPacer:
             if bucket is None:
                 bucket = TokenBucket(self._rate, self._capacity, self._now)
                 self._buckets[channel_id] = bucket
-        delay = bucket.take(self._max_wait)
+            delay = bucket.take(self._max_wait)
         if delay > 0:
             self._sleep(delay)
 

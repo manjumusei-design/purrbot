@@ -140,9 +140,9 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             started,
             {"provider": source},
         )
+        _react(client, event, content.CAT_EMOJI)
     elif detection.duck_word_in(text):
         source, posted = _post_duck(say, event["channel"], event["ts"], titles)
-        _react(client, event, content.DUCK_EMOJI)
         _record(
             event_log,
             "duck_picture",
@@ -152,6 +152,7 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             started,
             {"provider": source},
         )
+        _react(client, event, content.DUCK_EMOJI)
     else:
         code = detection.status_code_in(text)
         if code is None:
@@ -163,7 +164,6 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             images.status_picture_blocks(code),
             images.status_picture_title(code),
         )
-        _react(client, event, content.CAT_EMOJI)
         _record(
             event_log,
             "status_picture",
@@ -173,30 +173,54 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             started,
             {"code": code, "provider": "http.cat"},
         )
+        _react(client, event, content.CAT_EMOJI)
 
-def _post_cat(say, channel_id: str, thread_ts: str, titles: PictureTitles) -> None:
+def _post_cat(
+    say,
+    channel_id: str,
+    thread_ts: str,
+    titles: PictureTitles,
+) -> tuple[str, bool]:
     picture = providers.cat_images.picture()
-    _thread_picture(
+    posted = _thread_picture(
         say,
         channel_id,
         thread_ts,
         images.cat_picture_blocks(titles.next("cat"), picture),
     )
+    return picture.source, posted
 
-def _post_duck(say, channel_id: str, thread_ts: str, titles: PictureTitles) -> None:
+
+def _post_duck(
+    say,
+    channel_id: str,
+    thread_ts: str,
+    titles: PictureTitles,
+) -> tuple[str, bool]:
     picture = providers.duck_images.picture()
-    _thread_picture(
+    posted = _thread_picture(
         say,
         channel_id,
         thread_ts,
         images.duck_picture_blocks(titles.next("duck"), picture),
     )
+    return picture.source, posted
 
-def _reaction_reflex(item, reaction: str, say, titles: PictureTitles) -> None:
+
+
+def _reaction_reflex(
+    item,
+    reaction: str,
+    say,
+    titles: PictureTitles,
+) -> tuple[str, str, bool] | None:
     if reaction == content.CAT_EMOJI:
-        _post_cat(say, item["channel"], item["ts"], titles)
-    elif reaction == content.DUCK_EMOJI:
-        _post_duck(say, item["channel"], item["ts"], titles)
+        source, posted = _post_cat(say, item["channel"], item["ts"], titles)
+        return "reaction_cat", source, posted
+    if reaction == content.DUCK_EMOJI:
+        source, posted = _post_duck(say, item["channel"], item["ts"], titles)
+        return "reaction_duck", source, posted
+    return None
 
 
 def _thread_picture(
@@ -205,10 +229,9 @@ def _thread_picture(
     thread_ts: str,
     blocks,
     text: str | None = None,
-) -> None:
+) -> bool:
     fallback = {"text": text} if text is not None else {}
-    pacing.post(say, channel_id, blocks=blocks, thread_ts=thread_ts, **fallback)
-
+    return pacing.post(say, channel_id, blocks=blocks, thread_ts=thread_ts, **fallback)
 
 
 def _react(client, event, emoji: str) -> None:
@@ -220,10 +243,20 @@ def _answer_dm(
         client,
         persona: ai.CatPersona | None,
         memory: ConversationMemory,
+        event_log: EventLog,
 ) -> None:
     user_id = event.get("user") or event["channel"]
+    started = time.perf_counter()
     if persona is None:
-        pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
+        posted = pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
+        _record(
+            event_log,
+            "dm_persona",
+            event["channel"],
+            user_id,
+            "unplugged" if posted else "dropped",
+            started,
+        )
         return
     if not memory.history(user_id):
         _first_contact(memory, user_id, client, event)
@@ -237,7 +270,16 @@ def _answer_dm(
     reply = persona.reply(messages)
     memory.append(user_id, "assistant", reply)
     memory.flush()
-    pacing.post(say, event["channel'], text=reply"])
+    posted = pacing.post(say, event["channel"], text=reply)
+    _record(
+        event_log,
+        "dm_persona",
+        event["channel"],
+        user_id,
+        "replied" if posted else "dropped",
+        started,
+        {"messages": len(messages)},
+    )
 
 
 def _first_contact(memory: ConversationMemory, user_id: str, client, event) -> None:
