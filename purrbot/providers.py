@@ -1,3 +1,4 @@
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -38,6 +39,7 @@ class _JsonImageProvider:
         self._discovery_url = discovery_url
         self._fallbacks = fallbacks
         self._fallback_index = 0
+        self.fallback_lock = threading.Lock()
         self._now = now
         self._fetch = fetch
 
@@ -60,9 +62,10 @@ class _JsonImageProvider:
 
     def _next_fallback(self) -> tuple[str, str]:
         source, url = self._fallbacks[self._fallback_index % len(self._fallbacks)]
-        self._fallback_index += 1
+        with self._fallback_lock:
+            source, url = self._fallbacks[self._fallback_index % len(self._fallbacks)]
+            self._fallback_index += 1
         return source, url
-
 
 class CatImages(_JsonImageProvider):
     def __init__(
