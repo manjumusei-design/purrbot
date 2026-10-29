@@ -80,20 +80,24 @@ def _retry_after(error: SlackApiError) -> float:
         return 1.0
 
 
-def post(poster: Callable[..., object], channel_id: str, **kwargs) -> bool:
+def post(
+    poster: Callable[..., object],
+    channel_id: str,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    **kwargs,
+) -> bool:
     channel_pacer.wait(channel_id)
     try:
         poster(**kwargs)
     except SlackApiError as error:
         if not _rate_limited(error):
-            raise
-        time.sleep(min(_retry_after(error), RETRY_CAP_SECONDS))
+            return False
+        sleep(min(_retry_after(error), RETRY_CAP_SECONDS))
         try:
             poster(**kwargs)
         except SlackApiError:
             return False
     return True
-
-
 
 channel_pacer = ChannelPacer()
