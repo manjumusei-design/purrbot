@@ -6,8 +6,8 @@ from slack_sdk.errors import SlackApiError
 from purrbot import ai, config, content, detection, images, pacing, providers
 from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
-from purrbot.optout import OptOutStore
 from purrbot.shush import ShushStore
+from purrbot.store import Store
 from purrbot.titles import PictureTitles
 
 DEDUP_WINDOW_SIZE = 1000
@@ -19,7 +19,7 @@ _seeded_lock = threading.Lock()
 
 def register(
     app,
-    store: OptOutStore,
+    store: Store,
     shush: ShushStore,
     memory: ConversationMemory,
     event_log: EventLog,

@@ -6,3 +6,7 @@ optouts.json
 memories.json
 .pytest_cache/
 .DS_Store
+optouts.json.migrated
+*.db
+*.db-wal
+*.db-shm

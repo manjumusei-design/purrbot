@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .env
 *.db
+*db-wal
+*.db-shm
 *.jsonl
 optouts.json
+optouts.json.migrated
 memories.json

@@ -5,7 +5,7 @@ from datetime import datetime
 from purrbot import content, images, providers
 from purrbot.catify import catify
 from purrbot.eventlog import EventLog
-from purrbot.optout import OptOutStore
+from purrbot.store import Store
 from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
 
 def _fresh_cat_fact_text() -> str:
@@ -22,7 +22,7 @@ def _age_text(timestamp: float | None, now: float) -> str:
     return content.HEALTH_MINUTES_AGO.format(minutes=elapsed // 60)
 
 
-def register(app, store: OptOutStore, shush: ShushStore) -> None:
+def register(app, store: Store, shush: ShushStore) -> None:
     def _log_command(command, outcome: str = "ok") ->None:
         event_log.record(
             command["command"],
@@ -150,13 +150,13 @@ def register(app, store: OptOutStore, shush: ShushStore) -> None:
     @app.command("/purrbot-optout")
     def optout(ack, respond, command) -> None:
         ack()
-        store.add(command["user_id"])
+        store.opt_out(command["user_id"])
         respond(text=content.OPTOUT_CONFIRM)
 
     @app.command("/purrbot-optin")
     def optin(ack, respond, command) -> None:
         ack()
-        store.remove(command["user_id"])
+        store.opt_out(command["user_id"])
         respond(text=content.OPTIN_CONFIRM)
 
 
