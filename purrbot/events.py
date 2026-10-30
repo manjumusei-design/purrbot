@@ -13,6 +13,8 @@ from purrbot.titles import PictureTitles
 DEDUP_WINDOW_SIZE = 1000
 _seen_message_ids: dict[str, None] = {}
 _seen_lock = threading.Lock()
+_seeded_users : set[str] = set()
+_seeded_lock = threading.Lock()
 
 
 def register(
