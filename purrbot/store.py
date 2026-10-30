@@ -48,7 +48,7 @@ class Store:
 
     @contextmanager
     def _transaction(self):
-        
+
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -113,4 +113,59 @@ class Store:
                 (user_id, int(time.time())),
             )
 
+    def channel_allowed(self, channel_id: str) -> bool:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT allowed FROM channels WHERE channel_id = ?", (channel_id,)
+            ).fetchone()
+        return bool(row["allowed"]) if row is not None else True
+
+    
+    def set_channel_allowed(self, channel_id: str, allowed: bool) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                "INSERT INTO channels(channel_id, allowed) VALUES (?, ?) "
+                "ON CONFLICT(channel_id) DO UPDATE SET allowed = excluded.allowed",
+                (channel_id, int(allowed)),
+            )
+
+    def top_current(self, limit: int = 10) -> list[dict]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT user_id, display_name, current_streak, longest_streak, total_meows "
+                "FROM users WHERE current_streak > 0 "
+                "ORDER BY current_streak DESC, longest_streak DESC, total_meows DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def top_longest(self, limit: int = 10) -> list[dict]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT user_id, display_name, current_streak, longest_streak, total_meows "
+                "FROM users WHERE longest_streak > 0 "
+                "ORDER BY longest_streak DESC, current_streak DESC, total_meows DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def migrate_legacy_optouts(self, path: str) -> int:
+        legacy = Path(path)
+        if not legacy.exists():
+            return 0
+        try:
+            user_ids = json.loads(legacy.read_text(encoding="utf-8"))
+            if not isinstance(user_ids, list):
+                raise ValueError
+        except (OSError, TypeError, ValueError):
+            user_ids = []
+        with self._transaction() as connection:
+            for user_id in user_ids:
+                connection.execute(
+                    "INSERT INTO users(user_id, opted_out, first_meow_at) VALUES (?, 1, ?) "
+                    "ON CONFLICT(user_id) DO UPDATE SET opted_out = 1",
+                    (str(user_id), int(time.time())),
+                )
+        os.replace(legacy, legacy.with_name(legacy.name + ".migrated"))
+        return len(user_ids)
     
