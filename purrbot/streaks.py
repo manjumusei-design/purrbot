@@ -7,10 +7,15 @@ STREAK_KINDS = ("cat", "status")
 def record_meow(store, client, user_id, channel_id, event_id, event_ts, kind, now_utc):
     if now_utc.tzinfo is None:
         now_utc = now_utc.replace(tzinfo=UTC)
-    if store.user(user_id) is None:
+    user = store.user(user_id)
+    if user is None:
         display_name, tz = _slack_identity(client, user_id)
         store.create_user(user_id, display_name, tz, int(now_utc.timestamp()))
 
+    elif user["total_meows"] == 0 and user["last_active_date"] is None:
+        display_name, tz = _slack_identity(client, user_id)
+        if display_name or tz != "UTC":
+            store.update_identity(user_id, display_name, tz)
     with store._transaction() as connection:
         user = connection.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
         local_date = _local_date(now_utc, user["tz"])

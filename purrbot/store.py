@@ -88,7 +88,13 @@ class Store:
                 "VALUES (?, ?, ?, ?)",
                 (user_id, display_name, tz, first_meow_at or int(time.time())),
             )
-
+    def update_identity(self, user_id: str, display_name: str, tz: str) -> None:
+        with self._transaction() as connection:
+            connection.execute(
+                "UPDATE users SET display_name = ?, tz = ? WHERE user_id = ?",
+                (display_name, tz, user_id),
+            )
+            
     def is_opted_out(self, user_id: str) -> bool:
         with self._connection() as connection:
             row = connection.execute(

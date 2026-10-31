@@ -39,7 +39,7 @@ def register(
         is_dm = event.get("channel_type") == "im"
 
         if is_dm:
-            if _dm_already_seen(_message_key(event)):
+            if _dm_already_seen(f"{event['channel']}:{_message_key(event)}"):
                 return
             _answer_dm(event, say, client, persona, memory, event_log)
             return
