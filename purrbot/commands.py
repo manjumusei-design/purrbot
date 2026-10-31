@@ -159,7 +159,22 @@ def register(app, store: Store, shush: ShushStore) -> None:
         store.opt_out(command["user_id"])
         respond(text=content.OPTIN_CONFIRM)
 
-
+    @app.command("streak")
+    def streak_command(ack, respond, command) -> None:
+        ack()
+        user = store.user(command["user_id"])
+        if user is None or user["total_meows"] == 0:
+            respond(text=content.STREAK_EMPTY)
+            _log_command(command, "empty")
+            return
+        respond(
+            text=content.STREAK_TEXT.format(
+                current=user["current_streak"],
+                longest=user["longest_streak"],
+                total=user["total_meows"],
+            )
+        )
+        _log_command(command)
 
     @app.command("/purrbot-shush")
     def shush_command(ack, respond, command) -> None:
@@ -197,3 +212,101 @@ def register(app, store: Store, shush: ShushStore) -> None:
                 )
             )
         respond(text="\n".join(lines), mrkdwn = False)
+        _log_command(command)
+
+    @app.command("/leaderboard")
+    def leaderboard_command(ack, respond, command) -> None:
+        ack()
+        board = command.get("text", "").strip().lower() or "live"
+        if board not in ("live", "fame"):
+            respond(text=content.LEADERBOARD_BAD_BOARD)
+            _log_command(command, "hint")
+            return
+        rows = store.top_current(10) if board == "live" else store.top_longest(10)
+        if not rows:
+            respond(text=content.LEADERBOARD_EMPTY)
+            _log_command(command, "empty")
+            return
+        title = (
+            content.LEADERBOARD_TITLE_LIVE if board == "live" else content.LEADERBOARD_TITLE_FAME
+        )
+        lines = []
+        for index, row in enumerate(rows):
+            medal = content.MEDALS[index] if index < len(content.MEDALS) else f"{index + 1}."
+            count = row["current_streak"] if board == "live" else row["longest_streak"]
+            lines.append(
+                content.LEADERBOARD_LINE.format(
+                    medal=medal,
+                    user_id=row["user_id"],
+                    count=count,
+                )
+            )
+        blocks = [
+            {"type": "section", "text": {"type": "mrkdwn", "text": title}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}},
+        ]
+        respond(text=title, blocks=blocks)
+        _log_command(command)
+
+
+    @app.command("/purrbot-help")
+    def help_command(ack, respond, command) -> None:
+        ack()
+        respond(text=content.HELP_TEXT, mrkdwn=False)
+        _log_command(command)
+
+    @app.command("/purrbot-optout")
+    def optout(ack, respond, command) -> None:
+        ack()
+        store.opt_out(command["user_id"])
+        respond(text=content.OPTOUT_CONFIRM)
+        _log_command(command)
+
+    @app.command("/purrbot-optin")
+    def optin(ack, respond, command) -> None:
+        ack()
+        store.opt_in(command["user_id"])
+        respond(text=content.OPTIN_CONFIRM)
+        _log_command(command)
+
+    @app.command("/purrbot-shush")
+    def shush_command(ack, respond, command) -> None:
+        ack()
+        raw_minutes = command.get("text", "").strip()
+        if not raw_minutes:
+            minutes = DEFAULT_SHUSH_MINUTES
+        else:
+            try:
+                minutes = int(raw_minutes)
+            except ValueError:
+                respond(text=content.SHUSH_BAD_MINUTES)
+                _log_command(command, "hint")
+                return
+        channel_id = command["channel_id"]
+        if minutes == 0:
+            shush.unmute(channel_id)
+            respond(text=content.SHUSH_CANCELLED)
+            _log_command(command, "unmuted")
+            return
+        until = shush.mute(channel_id, minutes)
+        # server-local time is the owner's clock today; after deploy it's the vps clock
+        until_text = datetime.fromtimestamp(until).strftime("%H:%M")
+        respond(text=content.SHUSH_CONFIRM.format(time=until_text))
+        _log_command(command, "muted")
+
+    @app.command("/purrbot-health")
+    def health_command(ack, respond, command) -> None:
+        ack()
+        now = time.time()
+        lines = [content.HEALTH_TITLE]
+        for provider in (providers.cat_images, providers.duck_images):
+            lines.append(
+                content.HEALTH_LINE.format(
+                    name=provider.name,
+                    state=provider.breaker.state,
+                    success=_age_text(provider.last_success, now),
+                    failure=_age_text(provider.last_failure, now),
+                )
+            )
+        respond(text="\n".join(lines), mrkdwn=False)
+        _log_command(command)
