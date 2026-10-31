@@ -1,5 +1,6 @@
 import threading
 import time
+from datetime import UTC, datetime
 
 from slack_sdk.errors import SlackApiError
 
@@ -10,9 +11,9 @@ from purrbot.shush import ShushStore
 from purrbot.store import Store
 from purrbot.titles import PictureTitles
 
-DEDUP_WINDOW_SIZE = 1000
-_seen_message_ids: dict[str, None] = {}
-_seen_lock = threading.Lock()
+DM_DEDUPE_WINDOW_SIZE = 1000
+_seen_dm_ids: dict[str, None] = {}
+_seen_dm_lock = threading.Lock()
 _seeded_users : set[str] = set()
 _seeded_lock = threading.Lock()
 
@@ -29,14 +30,6 @@ def register(
 
     bot_user_id = app.client.auth_test()["user_id"]
 
-    def _reflex_allowed(user_id: str | None, channel_id: str, dedupe_key: str) -> bool:
-        if user_id and store.is_opted_out(user_id):
-            return False
-        if shush.is_muted(channel_id):
-            return False
-        return not _already_seen(dedupe_key)
-    
-
     @app.event("message")
     def handle_message(event, say, client) -> None:
         if event.get("bot_id"):
@@ -44,40 +37,54 @@ def register(
         if event.get("subtype"):
             return
         is_dm = event.get("channel_type") == "im"
-        if is_dm and _already_seen(_message_key(event)):
-            return
+
         if is_dm:
+            if _dm_already_seen(_message_key(event)):
+                return
             _answer_dm(event, say, client, persona, memory, event_log)
             return
-        if not _reflex_allowed(event.get("user"), event["channel"], _message_key(event)):
+        if not reflex_allowed(store, shush, event.get("user"), event["channel"]):
             return
-        _reflex(event, say, client, titles, event_log)
-
-
+        _reflex(event, say, client, titles, event_log, store)
 
     @app.event("reaction_added")
-    def handle_reaction_added(event, say) -> None:
-        if event.get("user)") == bot_user_id:
+    def handle_reaction_added(event, say, client) -> None:
+        if event.get("user") == bot_user_id:
             return
         item = event["item"]
         if item.get("type") != "message":
             return
         reaction = event["reaction"].split("::")[0]
-        if not _reflex_allowed(event.get("user"), item["channel"], event["event_ts"]):
+        kind = _reaction_kind(reaction)
+        if kind is None:
+            return
+        if not reflex_allowed(store, shush, event.get("user"), item["channel"]):
             return
         started = time.perf_counter()
+        outcome = streaks.record_meow(
+            store,
+            client,
+            event.get("user"),
+            item["channe"],
+            f"reaction:{event['event_ts']}",
+            event["event_ts"],
+            kind,
+            datetime.now(UTC),
+        )
+        if outcome["outcome"] == "duplicate":
+            return
         result = _reaction_reflex(item, reaction, say, titles)
         if result is None:
             return
-        kind, source, posted = result
+        log_kind, source, posted = result
         _record(
             event_log,
-            kind,
+            log_kind,
             item["channel"],
             event.get("user"),
             "posted" if posted else "dropped",
             started,
-            {"provider": source},
+            {"provider": source, **_streak_extra(outcome)},
         )
         
     @app.event("app_mention")
@@ -93,19 +100,27 @@ def register(
             started,
         )
 
+def reflex_allowed(store: Store, shush: ShushStore, user_id: str | None, channel_id: str) -> bool:
+    if user_id and store.is_opted_out(user_id):
+        return False
+    if shush.is_muted(channel_id):
+        return False
+    if not store.channel_allowed(channel_id):
+        return False
+    return True
+
 def _message_key(event) -> str:
     return event.get("client_msg_id") or event["ts"]
 
 
-def _already_seen(message_id: str) -> bool:
-    with _seen_lock:
-        if message_id in _seen_message_ids:
+def _dm_already_seen(message_id: str) -> bool:
+    with _seen_dm_lock:
+        if message_id in _seen_dm_ids:
             return True
-        _seen_message_ids[message_id] = None
-        while len(_seen_message_ids) > DEDUPE_WINDOW_SIZE:
-            _seen_message_ids.pop(next(iter(_seen_message_ids)))
+        _seen_dm_ids[message_id] = None
+        while len(_seen_dm_ids) > DM_DEDUPE_WINDOW_SIZE:
+            _seen_dm_ids.pop(next(iter(_seen_dm_ids)))
     return False
-
 
 
 def _record(
