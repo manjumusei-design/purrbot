@@ -16,7 +16,7 @@ def record_meow(store, client, user_id, channel_id, event_id, event_ts, kind, no
         display_name, tz = _slack_identity(client, user_id)
         if display_name or tz != "UTC":
             store.update_identity(user_id, display_name, tz)
-    with store._transaction() as connection:
+    with store.transaction() as connection:
         user = connection.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
         local_date = _local_date(now_utc, user["tz"])
         try:

@@ -94,9 +94,9 @@ class Store:
                 "UPDATE users SET display_name = ?, tz = ? WHERE user_id = ?",
                 (display_name, tz, user_id),
             )
-            
+
     def is_opted_out(self, user_id: str) -> bool:
-        with self._connection() as connection:
+        with self.connection() as connection:
             row = connection.execute(
                 "SELECT opted_out FROM users WHERE user_id = ?", (user_id,)
             ).fetchone()
