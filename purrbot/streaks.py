@@ -39,7 +39,7 @@ def record_meow(store, client, user_id, channel_id, event_id, event_ts, kind, no
             )
         else:
             current = user["current_streak"]
-            outcome = "same_day"
+            outcome = "counted"
             connection.execute(
                 "UPDATE users SET total_meows = total_meows + 1, last_update_ts = ? WHERE user_id = ?",
                 (int(now_utc.timestamp()), user_id),

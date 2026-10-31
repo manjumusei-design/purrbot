@@ -145,6 +145,65 @@ class Store:
             ).fetchall()
         return [dict(row) for row in rows]
 
+
+    def meow_count_since(self, since_ts: float) -> int:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) FROM meow_events WHERE event_ts >= ?", (since_ts,)
+            ).fetchone()
+        return int(row[0])
+
+    def active_streakers(self, minimum: int = 2) -> int:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) FROM users WHERE current_streak >= ?", (minimum,)
+            ).fetchone()
+        return int(row[0])
+
+    def channels(self) -> list[dict]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT c.channel_id, c.name, c.allowed, MAX(e.event_ts) AS last_seen "
+                "FROM channels c LEFT JOIN meow_events e ON e.channel_id = c.channel_id "
+                "GROUP BY c.channel_id, c.name, c.allowed ORDER BY c.channel_id"
+            ).fetchall()
+        return [
+            {
+                "channel_id": row["channel_id"],
+                "name": row["name"],
+                "allowed": bool(row["allowed"]),
+                "last_seen": row["last_seen"],
+            }
+            for row in rows
+        ]
+
+    def channel_name(self, channel_id: str) -> str:
+        with self.connection() as connection:
+             row = connection.execute(
+                "SELECT name FROM channels WHERE channel_id = ?", (channel_id,)
+            ).fetchone()
+        return row["name"] if row is not None else ""
+
+    def feud(self, since_ts: float) -> dict:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT kind, channel_id, COUNT(*) AS count FROM meow_events "
+                "WHERE kind IN ('cat', 'duck') AND event_ts >= ? "
+                "GROUP BY kind, channel_id ORDER BY kind, count DESC, channel_id ASC",
+                (since_ts,),
+            ).fetchall()
+        result = {
+            "cat": {"count": 0, "top_channel": None, "top_channel_count": 0},
+            "duck": {"count": 0, "top_channel": None, "top_channel_count": 0},
+        }
+        for row in rows:
+            side = result[row["kind"]]
+            side["count"] += row["count"]
+            if row["count"] > side["top_channel_count"]:
+                side["top_channel"] = row["channel_id"]
+                side["top_channel_count"] = row["count"]
+        return result
+
     def top_longest(self, limit: int = 10) -> list[dict]:
         with self._connection() as connection:
             rows = connection.execute(
