@@ -41,7 +41,7 @@ def register(
         if is_dm:
             if _dm_already_seen(f"{event['channel']}:{_message_key(event)}"):
                 return
-            _answer_dm(event, say, client, persona, memory, event_log)
+            _answer_dm(event, say, client, persona, memory, event_log, store, titles)
             return
         if not reflex_allowed(store, shush, event.get("user"), event["channel"]):
             return
@@ -161,6 +161,14 @@ def _record(
     )
 
 
+
+def _cat_or_duck_kind(text: str) -> str | None:
+    if detection.cat_word_in(text):
+        return "cat"
+    if detection.duck_word_in(text):
+        return "duck"
+    return None
+
 def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> None:
     started = time.perf_counter()
     text = event.get("text", "")
@@ -219,6 +227,48 @@ def _reaction_kind(reaction: str) -> str | None:
         return "duck"
     return None
 
+def _dm_reflex(
+        event,
+        say,
+        client,
+        titles: PictureTitles,
+        event_log: EventLog,
+        store: Store,
+) -> None:
+    kind = _cat_or_duck_kind(event.get("text", ""))
+    if kind is None:
+        return
+    user_id = event.get("user") or event["channel"]
+    if store.is_opted_out(user_id):
+        return
+    started = time.perf_counter()
+    outcome = streaks.record_meow(
+        store,
+        client,
+        user_id,
+        event["channel"],
+        f"dm:{_message_key(event)}",
+        event["ts"],
+        kind,
+        datetime.now(UTC),
+    )
+    if outcome["outcome"] == "duplicate":
+        return
+    if kind == "cat":
+        source, posted = _post_cat(say, event["channel"], event["ts"], titles)
+        log_kind = "cat_picture"
+    else:
+        source, posted = _post_duck(say, event["channel"], event["ts"], titles)
+        log_kind = "duck_picture"
+    _record(
+        event_log,
+        log_kind,
+        event["channel"],
+        user_id,
+        "posted" if posted else "dropped",
+        started,
+        {"provider": source, **_streak_extra(outcome)},
+    )
 
 def _streak_extra(outcome: dict) -> dict:
     return {"streak": outcome["outcome"], "current_streak": outcome["current"]}
@@ -348,8 +398,11 @@ def _answer_dm(
         persona: ai.CatPersona | None,
         memory: ConversationMemory,
         event_log: EventLog,
+        store: Store,
+        titles: PictureTitles,
 ) -> None:
     user_id = event.get("user") or event["channel"]
+    _dm_reflex(event, say, client, titles, event_log, store)
     started = time.perf_counter()
     if persona is None:
         posted = pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
