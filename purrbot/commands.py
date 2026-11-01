@@ -24,6 +24,12 @@ def _age_text(timestamp: float | None, now: float) -> str:
     return content.HEALTH_MINUTES_AGO.format(minutes=elapsed // 60)
 
 
+def _respond_plain(respond, text: str) -> None:
+    blocks = [
+        {"type": "section", "text": {"type": "plain_text", "text": text, "emoji": True}}
+    ]
+    respond(blocks=blocks, text=text)
+
 def register(app, store: Store, shush: ShushStore) -> None:
     def _log_command(command, outcome: str = "ok") ->None:
         event_log.record(
@@ -141,7 +147,6 @@ def register(app, store: Store, shush: ShushStore) -> None:
             body["channel"]["id"],
             text=random.choice(content.BUTTON_PHRASES),
             thread_ts=message.get("thread_ts") or message["ts"],
-            mrkdwn=False
         )
 
     @app.command("/purrbot-help")
@@ -287,7 +292,7 @@ def register(app, store: Store, shush: ShushStore) -> None:
     @app.command("/purrbot-help")
     def help_command(ack, respond, command) -> None:
         ack()
-        respond(text=content.HELP_TEXT, mrkdwn=False)
+        _respond_plain(respond, content.HELP_TEXT)
         _log_command(command)
 
     @app.command("/purrbot-optout")
@@ -343,5 +348,5 @@ def register(app, store: Store, shush: ShushStore) -> None:
                     failure=_age_text(provider.last_failure, now),
                 )
             )
-        respond(text="\n".join(lines), mrkdwn=False)
+        _respond_plain(respond, "\n".join(lines))
         _log_command(command)

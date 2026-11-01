@@ -1,6 +1,6 @@
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from slack_sdk.errors import SlackApiError
 
@@ -100,6 +100,25 @@ def register(
             started,
         )
 
+    @app.event("app_home_opened")
+    def handle_app_home_opened(event, client) -> None:
+        if event.get("tab") != "home":
+            return
+        user_id = event.get("user")
+        if not user_id:
+            return
+        started = time.perf_counter()
+        try:
+            client.views_publish(
+                user_id = user_id,
+                view=_home_view(store, user_id, datetime.now(UTC)),
+            )
+        except SlackApiError:
+            _record(event_log, "app_home", None, user_id, "dropped", started)
+            return
+        _record(event_log, "app_home", None, user_id, "published", started)
+
+
 def reflex_allowed(store: Store, shush: ShushStore, user_id: str | None, channel_id: str) -> bool:
     if user_id and store.is_opted_out(user_id):
         return False
@@ -191,6 +210,74 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             {"code": code, "provider": "http.cat"},
         )
         _react(client, event, content.CAT_EMOJI)
+
+
+def _reaction_kind(reaction: str) -> str | None:
+    if reaction == content.CAT_EMOJI:
+        return "cat"
+    if reaction == content.DUCK_EMOJI:
+        return "duck"
+    return None
+
+
+def _streak_extra(outcome: dict) -> dict:
+    return {"streak": outcome["outcome"], "current_streak": outcome["current"]}
+
+def _home_view(store: Store, user_id: str, now_utc: datetime) -> dict:
+    user = store.user(user_id)
+    if user is None or user["total_meows"] ==0:
+        streak_text = content.STREAK_HOME_EMPTY
+    else:
+        streak_text = content.STREAK_HOME_STATS.format(
+            current=user["current_streak"],
+            longest=user["longest_streak"],
+            total=user["total_meows"],
+        )
+    rows = store.top_current(3)
+    if rows:
+        board_text = "\n".join(
+            content.STREAK_HOME_BOARD_LINE.format(
+                medal=content.MEDALS[index] if index < len(content.MEDALS) else f"{index + 1}.",
+                user_id=row["user_id"],
+                count=row["current_streak"],
+            )
+            for index, row in enumerate(rows)
+        )
+    else:
+        board_text = content.STREAK_HOME_BOARD_EMPTY
+    feud = store.feud((now_utc - timedelta(days=7)).timestamp())
+    return {
+        "type": "home",
+        "blocks": [
+            {"type": "header", "text": {"type": "plain_text", "text": content.STREAK_HOME_TITLE}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": streak_text}},
+            {"type": "divider"},
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": content.STREAK_HOME_BOARD_TITLE},
+            },
+            {"type": "section", "text": {"type": "mrkdwn", "text": board_text}},
+            {"type": "divider"},
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": content.STREAK_HOME_FEUD_TITLE},
+            },
+            {"type": "section", "text": {"type": "mrkdwn", "text": _feud_line(feud)}},
+        ],
+    }
+
+def _feud_line(feud: dict) -> str:
+    cats = feud["cat"]["count"]
+    ducks = feud["duck"]["count"]
+    if cats == 0 and ducks == 0:
+        return content.STREAK_HOME_FEUD_EMPTY
+    if cats == ducks:
+        template = content.STREAK_HOME_FEUD_TIE
+    elif cats > ducks:
+        template = content.STREAK_HOME_FEUD_CATS
+    else:
+        template = content.STREAK_HOME_FEUD_DUCKS
+    return template.format(cats=cats, ducks=ducks)
 
 def _post_cat(
     say,
