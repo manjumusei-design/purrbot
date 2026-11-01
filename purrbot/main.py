@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 
@@ -14,6 +15,10 @@ def main() -> int:
         print("purrbot needs BOT_TOKEN and APP_TOKEN in .env — see .env.example nya", file=sys.stderr)
         return 1
     os.makedirs(config.PURRBOT_STATE_DIR, exist_ok=True)
+    if config.PURRBOT_DEBUG:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.getLogger("slack_bolt").setLevel(logging.DEBUG)
+        logging.getLogger("slack_sdk.socket_mode").setLevel(logging.DEBUG)
     app = App(token=config.BOT_TOKEN)
     store = Store(config.state_path("purrbot.db"))
     journal_mode = store.ensure_schema()

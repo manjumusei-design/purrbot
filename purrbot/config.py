@@ -16,3 +16,9 @@ PURRBOT_STATE_DIR = os.environ.get("PURRBOT_STATE_DIR", ".")
 
 def state_path(name: str) -> str:
     return os.path.join(PURRBOT_STATE_DIR, name)
+
+def debug_enabled(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+PURRBOT_DEBUG = debug_enabled(os.environ.get("PURRBOT_DEBUG", ""))

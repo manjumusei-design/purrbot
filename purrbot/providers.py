@@ -9,10 +9,10 @@ from purrbot import content
 from purrbot.reliability import CircuitBreaker
 
 HTTP_TIMEOUT_SECONDS = 10
-CAT_DISCOVERY_URL = "https://cataas.com/cat/cute/says/Meow?json=true"
+CAT_DISCOVERY_URL = "https://cataas.com/cat/cute?json=true"
 CAT_DIRECT_URL = "https://cataas.com/cat?width=600"
 DUCK_DISCOVERY_URL = "https://random-d.uk/api/quack"
-DUCK_DIRECT_URL = "https://random-d.ul/http.jpg"
+DUCK_DIRECT_URL = "https://random-d.uk/http.jpg"
 
 
 @dataclass(frozen=True)

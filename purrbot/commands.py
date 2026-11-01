@@ -48,7 +48,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
             outcome,
         )
 
-    @app.command("/meow")
+    @app.command("/purrbot-meow")
     def meow(ack, say, command) -> None:
         ack()
         picture = providers.cat_images.picture()
@@ -60,7 +60,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
         )
         _log_command(command, "ok" if posted else "dropped")
 
-    @app.command("/quack")
+    @app.command("/purrbot-quack")
     def quack(ack, say, command) -> None:
         ack()
         picture = providers.duck_images.picture()
@@ -72,7 +72,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
         )
         _log_command(command, "ok" if posted else "dropped")
 
-    @app.command("/catify")
+    @app.command("/purrbot-catify")
     def catify_command(ack, say, respond, command) -> None:
         ack()
         raw_text = command.get("text", "").strip()
@@ -82,7 +82,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
         said = catify(raw_text)
         pacing.post(say, command["channel_id"], text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
 
-    @app.command("/httpcat")
+    @app.command("/purrbot-httpcat")
     def httpcat(ack, say, respond, command) -> None:
         ack()
         raw_code = command.get("text", "").strip()
@@ -108,7 +108,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
             blocks = images.cat_gif_picture_blocks(),
         )
 
-    @app.command("/cat_fact")
+    @app.command("/purrbot-cat-fact")
     def cat_fact(ack, say, command) -> None:
         ack()
         pacing.post(
@@ -128,7 +128,7 @@ def register(app, store: Store, event_log: EventLog) -> None:
             blocks=images.cat_fact_blocks(fact_text),
         )
 
-    @app.command("/meow_button")
+    @app.command("/purrbot_button")
     def meow_button(ack, say, command) -> None:
         ack()
         picture = providers.cat_images.picture()
