@@ -1,6 +1,6 @@
 import random
 import time
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from purrbot import content, images, providers
 from purrbot.catify import catify
@@ -11,7 +11,9 @@ from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
 def _fresh_cat_fact_text() -> str:
     return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
 
-
+def _channel_label(store: Store, channel_id: str) -> str:
+    name = store.channel_name(channel_id)
+    return f"#{name}" if name else content.FEUD_UNKNOWN_CHANNEL
 
 def _age_text(timestamp: float | None, now: float) -> str:
     if timestamp is None:
@@ -213,6 +215,39 @@ def register(app, store: Store, shush: ShushStore) -> None:
             )
         respond(text="\n".join(lines), mrkdwn = False)
         _log_command(command)
+
+
+    @app.command("/purrbot-feud")
+    def feud_command(ack, respond, command) -> None:
+        ack()
+        since = (datetime.now(UTC) - timedelta(days=7)).timestamp()
+        feud = store.feud(since)
+        cats = feud["cat"]["count"]
+        ducks = feud["duck"]["count"]
+        lines = [content.FEUD_TITLE, content.FEUD_TOTALS.format(cats=cats, ducks=ducks)]
+        if cats == 0 and ducks == 0:
+            lines.append(content.FEUD_EMPTY)
+        elif cats == ducks:
+            lines.append(content.FEUD_TIE)
+        elif cats > ducks:
+            lines.append(content.FEUD_CATS_WIN)
+        else:
+            lines.append(content.FEUD_DUCKS_WIN)
+        for side, template in (
+            ("cat", content.FEUD_CAT_CHANNEL),
+            ("duck", content.FEUD_DUCK_CHANNEL),
+        ):
+            champion = feud[side]["top_channel"]
+            if champion:
+                lines.append(
+                    template.format(
+                        channel=_channel_label(store, champion),
+                        count=feud[side]["top_channel_count"],
+                    )
+                )
+        respond(text="\n".join(lines))
+        _log_command(command)
+
 
     @app.command("/leaderboard")
     def leaderboard_command(ack, respond, command) -> None:

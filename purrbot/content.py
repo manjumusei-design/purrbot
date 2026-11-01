@@ -144,6 +144,25 @@ LEADERBOARD_EMPTY = "the board is empty, be the first :3"
 LEADERBOARD_BAD_BOARD = "pick live or fame, mrrp — try /leaderboard live"
 LEADERBOARD_LINE = "{medal}<@{user_id}> — {count} day(s)"
 
+FEUD_TIE = "a truce nya — nobody wins this week"
+FEUD_CATS_WIN = "cats win this week, as they should nya"
+FEUD_DUCKS_WIN = "ducks win this week, rude >:c"
+FEUD_CAT_CHANNEL = "cats' loudest channel: {channel} ({count})"
+FEUD_DUCK_CHANNEL = "ducks' loudest channel: {channel} ({count})"
+FEUD_UNKNOWN_CHANNEL = "(unknown channel)"
+
+STREAK_HOME_TITLE = "*your purr stats* :3"
+STREAK_HOME_EMPTY = "no meows yet — say a cat word and plant one nya"
+STREAK_HOME_STATS = "current streak: {current}\nlongest: {longest}\ntotal meows: {total}"
+STREAK_HOME_BOARD_TITLE = "*live board, top three*"
+STREAK_HOME_BOARD_EMPTY = "the board is empty, be the first :3"
+STREAK_HOME_BOARD_LINE = "{medal}<@{user_id}> — {count} day(s)"
+STREAK_HOME_FEUD_TITLE = "*cat vs duck, last 7 days*"
+STREAK_HOME_FEUD_EMPTY = "no feuding yet — someone say quack :3"
+STREAK_HOME_FEUD_TIE = "cats {cats} · ducks {ducks} — a truce nya"
+STREAK_HOME_FEUD_CATS = "cats {cats} · ducks {ducks} — cats are ahead nya"
+STREAK_HOME_FEUD_DUCKS = "cats {cats} · ducks {ducks} — ducks are ahead, rude >:c"
+
 
 HEALTH_TITLE = "purrbot health report :3"
 HEALTH_LINE = "{name}: {state} breaker, last good {success}, last bad {failure}"
@@ -168,7 +187,10 @@ say quack or duck for a duck; drop a 3 digit http code for that code's cat.
 react with :cat or :duck or any related emoji and the same thing happens in that thread.
 
 on demand: /meow, /quack, /cat_gif, /httpcat <code>, /catify <text>, /cat_fact,
-/meow_button, /streak, /leaderboard [live|fame], /purrbot-health, /purrbot-help.
+/meow_button, /purrbot-health, /purrbot-help.
+streaks & boards: /streak for your numbers, /leaderboard [live|fame] for the boards,
+/purrbot-feud for the weekly cat-vs-duck scoreboard.
+
 
 control: /purrbot-optout stops my reflexes on you, /purrbot-optin brings them back,
 /purrbot-shush <minutes> quiets a whole channel (0 undoes it).
