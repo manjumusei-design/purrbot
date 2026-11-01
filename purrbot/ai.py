@@ -22,17 +22,27 @@ class CatPersona:
             "messages": [{"role": "system", "content": content.PERSONA_PROMPT}, *chat_messages],
         }
         try:
-            response = requests.post(
-                self.completions_url,
-                headers=self.headers,
-                json=body,
-                timeout=config.AI_TIMEOUT_SECONDS,
-            )
+            response = self._post(body)
+        except requests.RequestException:
+            try:
+                response = self._post(body)
+            except requests.RequestException:
+                return content.CAT_BRAIN_FRIED_REPLY
+        try:
             if response.status_code == TREATS_EMPTY_STATUS:
                 return content.CAT_BRAIN_TREATS_EMPTY_REPLY
             if response.status_code == RATE_LIMITED_STATUS:
                 return content.CAT_BRAIN_OVERLOADED_REPLY
             reply = response.json()["choices"][0]["message"]["content"]
-        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+        except (KeyError, IndexError, TypeError, ValueError):
             return content.CAT_BRAIN_FRIED_REPLY
         return reply if isinstance(reply, str) and reply else content.CAT_BRAIN_FRIED_REPLY
+
+
+    def _post(self, body: dict):
+        return requests.post(
+            self.completions_url,
+            headers = self.headers,
+            json=body,
+            timeout=config.AI_TIMEOUT_SECONDS,
+        )
