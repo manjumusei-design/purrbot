@@ -13,6 +13,35 @@ def emoji_kind(name: str) -> str | None:
         return "duck"
     return None
 
+
+STANDARD_CAT_EMOJIS = (
+    CAT_EMOJI,
+    "cat2",
+    "black_cat",
+    "smiley_cat",
+    "smile_cat",
+    "joy_cat",
+    "heart_eyes_cat",
+    "smirk_cat",
+    "kissing_cat",
+    "scream_cat",
+    "crying_cat_face",
+    "pouting_cat",
+)
+STANDARD_DUCK_EMOJIS = (DUCK_EMOJI,)
+
+
+def reaction_pools(custom_names: list[str]) -> dict[str, tuple[str, ...]]:
+    pools = {
+        "cat": list(STANDARD_CAT_EMOJIS),
+        "duck": list(STANDARD_DUCK_EMOJIS),
+    }
+    for name in custom_names:
+        kind = emoji_kind(name)
+        if kind is not None:
+            pools[kind].append(name)
+    return {kind: tuple(dict.fromkeys(names)) for kind, names in pools.items()}
+
 CAT_WORDS = [
     ":3",
     ":3c"

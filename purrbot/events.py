@@ -1,3 +1,4 @@
+import random
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -18,17 +19,27 @@ _seeded_users : set[str] = set()
 _seeded_lock = threading.Lock()
 
 
+def _load_reaction_pools(client) -> dict[str, tuple[str, ...]]:
+    try:
+        custom_names = list((client.emoji_list().get("emoji") or {}).keys())
+        return content.reaction_pools(custom_names)
+    except Exception:
+        return content.reaction_pools([])
+
+
 def register(
     app,
     store: Store,
     shush: ShushStore,
     memory: ConversationMemory,
     event_log: EventLog,
+    chooser=random.choice,
 ) -> None:
     persona = ai.CatPersona(config.AI_API_KEY, config.AI_MODEL, config.AI_URL) if config.AI_API_KEY else None
     titles = PictureTitles()
 
     bot_user_id = app.client.auth_test()["user_id"]
+    reaction_pools = _load_reaction_pools(app.client)
 
     @app.event("message")
     def handle_message(event, say, client) -> None:
@@ -45,7 +56,7 @@ def register(
             return
         if not reflex_allowed(store, shush, event.get("user"), event["channel"]):
             return
-        _reflex(event, say, client, titles, event_log, store)
+        _reflex(event, say, client, titles, event_log, store, reaction_pools, chooser)
 
     @app.event("reaction_added")
     def handle_reaction_added(event, say, client) -> None:
@@ -388,8 +399,13 @@ def _thread_picture(
     return pacing.post(say, channel_id, blocks=blocks, thread_ts=thread_ts, **fallback)
 
 
-def _react(client, event, emoji: str) -> None:
-    client.reactions_add(channel=event["channel"], name=emoji, timestamp=event["ts"])
+def _react(client, event, pool: tuple[str, ...], chooser=random.choice) -> None:
+    emoji = chooser(pool)
+    try:
+        client.reactions_add(channel=event["channel"], name=emoji, timestamp=event["ts"])
+    except SlackApiError:
+        pass
+
 
 def _answer_dm(
         event,
