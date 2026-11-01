@@ -1,6 +1,18 @@
 CAT_EMOJI = "cat"
 DUCK_EMOJI = "duck"
 
+
+CATT_EMOJI_ROOTS = ("cat", "meow", "kitt", "nya")
+DUCK_EMOJI_ROOT = ("duck",)
+
+def emoji_kind(name: str) -> str | None:
+    lowered = name.lower()
+    if any(root in lowered for root in CAT_EMOJI_ROOTS):
+        return "cat"
+    if any(root in lowered for root in DUCK_EMOJI_ROOTS):
+        return "duck"
+    return None
+
 CAT_WORDS = [
     ":3",
     ":3c"
