@@ -42,6 +42,19 @@ def reaction_pools(custom_names: list[str]) -> dict[str, tuple[str, ...]]:
             pools[kind].append(name)
     return {kind: tuple(dict.fromkeys(names)) for kind, names in pools.items()}
 
+
+
+def reaction_pools(custom_names: list[str]) -> dict[str, tuple[str, ...]]:
+    pools = {
+        "cat": list(STANDARD_CAT_EMOJIS),
+        "duck": list(STANDARD_DUCK_EMOJIS),
+    }
+    for name in custom_names:
+        kind = emoji_kind(name)
+        if kind is not None:
+            pools[kind].append(name)
+    return {kind: tuple(dict.fromkeys(names)) for kind, names in pools.items()}
+
 CAT_WORDS = [
     ":3",
     ":3c"

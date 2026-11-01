@@ -52,7 +52,7 @@ def register(
         if is_dm:
             if _dm_already_seen(f"{event['channel']}:{_message_key(event)}"):
                 return
-            _answer_dm(event, say, client, persona, memory, event_log, store, titles)
+            _answer_dm(event, say, client, persona, memory, event_log, store, titles, reaction_pools, chooser)
             return
         if not reflex_allowed(store, shush, event.get("user"), event["channel"]):
             return
@@ -180,38 +180,69 @@ def _cat_or_duck_kind(text: str) -> str | None:
         return "duck"
     return None
 
-def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> None:
+def _reflex(
+    event,
+    say,
+    client,
+    titles: PictureTitles,
+    event_log: EventLog,
+    store: Store,
+    reaction_pools: dict[str, tuple[str, ...]] | None = None,
+    chooser=random.choice,
+) -> None:
     started = time.perf_counter()
+    user_id = event.get("user")
+    if not user_id:
+        return
     text = event.get("text", "")
-    if detection.cat_word_in(text):
+    code = None
+    kind = _cat_or_duck_kind(text)
+    if kind is None:
+        code = detection.status_code_in(text)
+        if code is None:
+            return
+        kind = "status"
+    if reaction_pools is None:
+        reaction_pools = content.reaction_pools([])
+    if kind != "status":
+        _react(client, event, reaction_pools[kind], chooser)
+
+    outcome = streaks.record_meow(
+        store,
+        client,
+        user_id,
+        event["channel"],
+        _message_key(event),
+        event["ts"],
+        kind,
+        datetime.now(UTC),
+    )
+    if outcome["outcome"] == "duplicate":
+        return
+    extra = _streak_extra(outcome)
+    if kind == "cat":
         source, posted = _post_cat(say, event["channel"], event["ts"], titles)
-        _react(client, event, content.CAT_EMOJI)
         _record(
             event_log,
             "cat_picture",
             event["channel"],
-            event.get("user"),
+            user_id,
             "posted" if posted else "dropped",
             started,
-            {"provider": source},
+            {"provider": source, **extra},
         )
-        _react(client, event, content.CAT_EMOJI)
-    elif detection.duck_word_in(text):
+    elif kind == "duck":
         source, posted = _post_duck(say, event["channel"], event["ts"], titles)
         _record(
             event_log,
             "duck_picture",
             event["channel"],
-            event.get("user"),
+            user_id,
             "posted" if posted else "dropped",
             started,
-            {"provider": source},
+            {"provider": source, **extra},
         )
-        _react(client, event, content.DUCK_EMOJI)
     else:
-        code = detection.status_code_in(text)
-        if code is None:
-            return
         posted = _thread_picture(
             say,
             event["channel"],
@@ -223,12 +254,12 @@ def _reflex(event, say, client, titles: PictureTitles, event_log: EventLog) -> N
             event_log,
             "status_picture",
             event["channel"],
-            event.get("user"),
+            user_id,
             "posted" if posted else "dropped",
             started,
-            {"code": code, "provider": "http.cat"},
+            {"code": code, "provider": "http.cat", **extra},
         )
-        _react(client, event, content.CAT_EMOJI)
+        _react(client, event, reaction_pools["cat"], chooser)
 
 
 def _reaction_kind(reaction: str) -> str | None:
@@ -245,13 +276,17 @@ def _dm_reflex(
         titles: PictureTitles,
         event_log: EventLog,
         store: Store,
-) -> None:
+    reaction_pools: dict[str, tuple[str, ...]] | None = None,
+    chooser=random.choice,
     kind = _cat_or_duck_kind(event.get("text", ""))
     if kind is None:
         return
     user_id = event.get("user") or event["channel"]
     if store.is_opted_out(user_id):
         return
+    if reaction_pools is None:
+        reaction_pools = content.reaction_pools([])
+    _react(client, event, reaction_pools[kind], chooser)
     started = time.perf_counter()
     outcome = streaks.record_meow(
         store,
@@ -416,9 +451,11 @@ def _answer_dm(
         event_log: EventLog,
         store: Store,
         titles: PictureTitles,
+    reaction_pools: dict[str, tuple[str, ...]] | None = None,
+    chooser=random.choice
 ) -> None:
     user_id = event.get("user") or event["channel"]
-    _dm_reflex(event, say, client, titles, event_log, store)
+    _dm_reflex(event, say, client, titles, event_log, store, reaction_pools, chooser)
     started = time.perf_counter()
     if persona is None:
         posted = pacing.post(say, event["channel"], text=content.CAT_BRAIN_UNPLUGGED_REPLY)
