@@ -6,7 +6,8 @@ from purrbot import content, images, providers
 from purrbot.catify import catify
 from purrbot.eventlog import EventLog
 from purrbot.store import Store
-from purrbot.shush import DEFAULT_SHUSH_MINUTES, ShushStore
+from purrbot.store import DEFAULT_SHUSH_MINUTES, Store
+
 
 def _fresh_cat_fact_text() -> str:
     return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
@@ -30,7 +31,7 @@ def _respond_plain(respond, text: str) -> None:
     ]
     respond(blocks=blocks, text=text)
 
-def register(app, store: Store, shush: ShushStore) -> None:
+def register(app, store: Store, event_log: EventLog) -> None:
     def _log_command(command, outcome: str = "ok") ->None:
         event_log.record(
             command["command"],
@@ -197,10 +198,10 @@ def register(app, store: Store, shush: ShushStore) -> None:
                 return
         channel_id = command["channel_id"]
         if minutes == 0:
-            shush.unmute(channel_id)
+            store.clear_channel_shush(channel_id)
             respond(text=content.SHUSH_BAD_MINUTES)
             return
-        until = shush.mute(channel_id, minutes)
+        until = store.set_channel_shush(channel_id, minutes)
         until_text = datetime.fromtimestamp(until).strftime("%H:%M")
         respond(text=content.SHUSH_CONFIRM.format(time=until_text))
 

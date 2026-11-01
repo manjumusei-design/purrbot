@@ -7,7 +7,6 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from purrbot import commands, config, events
 from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
-from purrbot.shush import ShushStore
 from purrbot.store import Store
 
 def main() -> int:
@@ -23,11 +22,10 @@ def main() -> int:
         f"purrbot store: sqlite journal_mode={journal_mode}, imported {imported} opt-outs",
         file=sys.stderr,
     )
-    shush = ShushStore()
     memory = ConversationMemory(config.state_path("memories.json"))
     event_log = EventLog(config.state_path("events.jsonl"))
-    events.register(app, store, shush, memory, event_log)
-    commands.register(app, store, shush, event_log)
+    events.register(app, store, memory, event_log)
+    commands.register(app, store, event_log)
     SocketModeHandler(app, config.APP_TOKEN).start()
     return 0
 

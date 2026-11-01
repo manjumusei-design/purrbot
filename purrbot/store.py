@@ -5,6 +5,10 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+DEFAULT_SHUSH_MINUTES = 30
+MIN_SHUSH_MINUTES = 1
+MAX_SHUSH_MINUTES = 1440
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
   user_id TEXT PRIMARY KEY, display_name TEXT NOT NULL DEFAULT '',
@@ -67,6 +71,9 @@ class Store:
             for statement in SCHEMA.split(";"):
                 if statement.strip():
                     connection.execute(statement)
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(channels)")}
+            if "shushed_until" not in columns:
+                connection.execute("ALTER TABLE channels ADD COLUMN shushed_until REAL")
         return self.journal_mode
 
     def user(self, user_id: str) -> sqlite3.Row | None:
@@ -135,6 +142,37 @@ class Store:
                 (channel_id, int(allowed)),
             )
 
+    def set_channel_shush(self, channel_id: str, minutes: int, now: float | None = None) -> float:
+        minutes = max(MIN_SHUSH_MINUTES, min(MAX_SHUSH_MINUTES, minutes))
+        until = (now if now is not None else time.time()) + minutes * 60
+        with self.transaction() as connection:
+            connection.execute(
+                "INSERT INTO channels(channel_id, shushed_until) VALUES (?, ?) "
+                "ON CONFLICT(channel_id) DO UPDATE SET shushed_until = excluded.shushed_until",
+                (channel_id, until),
+            )
+        return until
+
+    def clear_channel_shush(self, channel_id: str) -> None:
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE channels SET shushed_until = NULL WHERE channel_id = ?", (channel_id,)
+            )
+
+
+    def channel_is_shushed(self, channel_id: str, now: float | None = None) -> bool:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT shushed_until FROM channels WHERE channel_id = ?", (channel_id,)
+            ).fetchone()
+        until = row["shushed_until"] if row is not None else None
+        if until is None:
+            return False
+        if until <= (now if now is not None else time.time()):
+            self.clear_channel_shush(channel_id)
+            return False
+        return True
+
     def top_current(self, limit: int = 10) -> list[dict]:
         with self._connection() as connection:
             rows = connection.execute(
@@ -163,15 +201,17 @@ class Store:
     def channels(self) -> list[dict]:
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT c.channel_id, c.name, c.allowed, MAX(e.event_ts) AS last_seen "
+                "SELECT c.channel_id, c.name, c.allowed, c.shushed_until, "
+                "MAX(e.event_ts) AS last_seen "
                 "FROM channels c LEFT JOIN meow_events e ON e.channel_id = c.channel_id "
-                "GROUP BY c.channel_id, c.name, c.allowed ORDER BY c.channel_id"
+                "GROUP BY c.channel_id, c.name, c.allowed, c.shushed_until ORDER BY c.channel_id"
             ).fetchall()
         return [
             {
                 "channel_id": row["channel_id"],
                 "name": row["name"],
                 "allowed": bool(row["allowed"]),
+                "shushed_until": row["shushed_until"],
                 "last_seen": row["last_seen"],
             }
             for row in rows

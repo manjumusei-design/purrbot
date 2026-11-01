@@ -8,7 +8,6 @@ from slack_sdk.errors import SlackApiError
 from purrbot import ai, config, content, detection, images, pacing, providers
 from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
-from purrbot.shush import ShushStore
 from purrbot.store import Store
 from purrbot.titles import PictureTitles
 
@@ -48,15 +47,15 @@ def register(
         if event.get("subtype"):
             return
         is_dm = event.get("channel_type") == "im"
-
         if is_dm:
             if _dm_already_seen(f"{event['channel']}:{_message_key(event)}"):
                 return
             _answer_dm(event, say, client, persona, memory, event_log, store, titles, reaction_pools, chooser)
             return
-        if not reflex_allowed(store, shush, event.get("user"), event["channel"]):
+        if not reflex_allowed(store, event.get("user"), event["channel"]):
             return
         _reflex(event, say, client, titles, event_log, store, reaction_pools, chooser)
+
 
     @app.event("reaction_added")
     def handle_reaction_added(event, say, client) -> None:
@@ -69,7 +68,7 @@ def register(
         kind = _reaction_kind(reaction)
         if kind is None:
             return
-        if not reflex_allowed(store, shush, event.get("user"), item["channel"]):
+        if not reflex_allowed(store, event.get("user"), item["channel"]):
             return
         started = time.perf_counter()
         outcome = streaks.record_meow(
@@ -130,10 +129,10 @@ def register(
         _record(event_log, "app_home", None, user_id, "published", started)
 
 
-def reflex_allowed(store: Store, shush: ShushStore, user_id: str | None, channel_id: str) -> bool:
+def reflex_allowed(store: Store, user_id: str | None, channel_id: str) -> bool:
     if user_id and store.is_opted_out(user_id):
         return False
-    if shush.is_muted(channel_id):
+    if store.channel_is_shushed(channel_id):
         return False
     if not store.channel_allowed(channel_id):
         return False
