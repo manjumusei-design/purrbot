@@ -1,0 +1,120 @@
+display_information:
+  name: PurrBot
+  description: purr purr :3 cat pictures, duck chaos, status code cats, and cat facts
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+    agent_tasks_enabled: true
+  bot_user:
+    display_name: PurrBot
+    always_online: true
+  slash_commands:
+    - command: /purrbot-meow
+      description: meow! :3
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-meow
+    - command: /purrbot-quack
+      description: quack! :3
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-quack
+    - command: /purrbot-catify
+      description: turn your text into cat-speak
+      should_escape: false
+      url: https://example.com
+      usage_hint: /purrbot-catify hello there, friends
+    - command: /purrbot-httpcat
+      description: cat picture for an HTTP status code
+      should_escape: false
+      url: https://example.com
+      usage_hint: /purrbot-httpcat 418
+    - command: /purrbot-cat-fact
+      description: random cat fact with a refresh button
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-cat-fact
+    - command: /cat_gif
+      description: a real cat gif, as promised
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /cat_gif
+    - command: /purrbot-button
+      description: post the sacred button
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-button
+    - command: /purrbot-help
+      description: every meow, trigger, and exit hatch in one breath
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-help
+    - command: /purrbot-optout
+      description: stop reacting to my cat words
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-optout
+    - command: /purrbot-optin
+      description: come back cats, i love you
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-optin
+    - command: /purrbot-shush
+      description: mute reflexes in this channel for a while
+      should_escape: false
+      url: https://example.com
+      usage_hint: /purrbot-shush 30
+    - command: /purrbot-health
+      description: breaker states and the last good cat fetch
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-health
+    - command: /streak
+      description: your current and longest meow streak
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /streak
+    - command: /leaderboard
+      description: top meow streaks in the workspace
+      should_escape: false
+      url: https://example.com
+      usage_hint: /leaderboard live or /leaderboard fame
+    - command: /purrbot-feud
+      description: cat vs duck, last seven days
+      should_escape: false
+      url: https://example.com
+      usage_hint: no input, just /purrbot-feud
+oauth_config:
+  scopes:
+    bot:
+      - emoji:read
+      - app_mentions:read
+      - channels:history
+      - chat:write
+      - commands
+      - groups:history
+      - im:history
+      - mpim:history
+      - reactions:read
+      - reactions:write
+      - users:read
+  pkce_enabled: false
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.channels
+      - message.groups
+      - message.mpim
+      - message.im
+      - app_mention
+      - reaction_added
+      - app_home_opened
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  is_mcp_enabled: false
+  token_rotation_enabled: false
+  app_level_token_rotation_enabled: false
