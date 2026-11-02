@@ -14,21 +14,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-  dashboard:
-    build: .
-    restart: unless-stopped
-    command: ["python", "-m", "purrbot.dashboard"]
-    env_file: .env
-    volumes:
-      - state:/app/state
-    ports:
-      - "127.0.0.1:${ADMIN_PORT:-8000}:${ADMIN_PORT:-8000}"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('ADMIN_PORT', '8000') + '/healthz')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
 
 volumes:
   state:

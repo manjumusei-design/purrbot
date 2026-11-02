@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS meow_events (
 CREATE INDEX IF NOT EXISTS events_by_date ON meow_events(local_date);
 CREATE INDEX IF NOT EXISTS events_by_user ON meow_events(user_id, local_date);
 CREATE TABLE IF NOT EXISTS channels (
-  channel_id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', allowed INTEGER NOT NULL DEFAULT 1
+  channel_id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', allowed INTEGER NOT NULL DEFAULT 1,
+  shushed_until REAL
 )
 """
 
@@ -43,7 +44,7 @@ class Store:
         return connection
 
     @contextmanager
-    def _connection(self):
+    def connection(self):
         connection = self._connect()
         try:
             yield connection
@@ -51,8 +52,7 @@ class Store:
             connection.close()
 
     @contextmanager
-    def _transaction(self):
-
+    def transaction(self):
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -65,9 +65,9 @@ class Store:
             connection.close()
 
     def ensure_schema(self) -> str:
-        with self._connection() as connection:
+        with self.connection() as connection:
             self.journal_mode = str(connection.execute("PRAGMA journal_mode=WAL").fetchone()[0])
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             for statement in SCHEMA.split(";"):
                 if statement.strip():
                     connection.execute(statement)
@@ -77,26 +77,26 @@ class Store:
         return self.journal_mode
 
     def user(self, user_id: str) -> sqlite3.Row | None:
-        with self._connection() as connection:
+        with self.connection() as connection:
             return connection.execute(
                 "SELECT * FROM users WHERE user_id = ?", (user_id,)
             ).fetchone()
 
     def create_user(
-            self,
-            user_id: str,
-            display_name: str = "",
-            tz: str = "UTC",
-            first_meow_at: int | None = None,
+        self,
+        user_id: str,
+        display_name: str = "",
+        tz: str = "UTC",
+        first_meow_at: int | None = None,
     ) -> None:
-        with self._transaction() as connection:
-            connection.execute (
+        with self.transaction() as connection:
+            connection.execute(
                 "INSERT OR IGNORE INTO users(user_id, display_name, tz, first_meow_at) "
                 "VALUES (?, ?, ?, ?)",
                 (user_id, display_name, tz, first_meow_at or int(time.time())),
             )
     def update_identity(self, user_id: str, display_name: str, tz: str) -> None:
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             connection.execute(
                 "UPDATE users SET display_name = ?, tz = ? WHERE user_id = ?",
                 (display_name, tz, user_id),
@@ -109,9 +109,8 @@ class Store:
             ).fetchone()
         return bool(row["opted_out"]) if row is not None else False
 
-
     def opt_out(self, user_id: str) -> None:
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             connection.execute(
                 "INSERT INTO users(user_id, opted_out, first_meow_at) VALUES (?, 1, ?) "
                 "ON CONFLICT(user_id) DO UPDATE SET opted_out = 1",
@@ -119,7 +118,7 @@ class Store:
             )
 
     def opt_in(self, user_id: str) -> None:
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             connection.execute(
                 "INSERT INTO users(user_id, opted_out, first_meow_at) VALUES (?, 0, ?) "
                 "ON CONFLICT(user_id) DO UPDATE SET opted_out = 0",
@@ -127,21 +126,19 @@ class Store:
             )
 
     def channel_allowed(self, channel_id: str) -> bool:
-        with self._connection() as connection:
+        with self.connection() as connection:
             row = connection.execute(
                 "SELECT allowed FROM channels WHERE channel_id = ?", (channel_id,)
             ).fetchone()
         return bool(row["allowed"]) if row is not None else True
 
-    
     def set_channel_allowed(self, channel_id: str, allowed: bool) -> None:
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             connection.execute(
                 "INSERT INTO channels(channel_id, allowed) VALUES (?, ?) "
                 "ON CONFLICT(channel_id) DO UPDATE SET allowed = excluded.allowed",
                 (channel_id, int(allowed)),
             )
-
     def set_channel_shush(self, channel_id: str, minutes: int, now: float | None = None) -> float:
         minutes = max(MIN_SHUSH_MINUTES, min(MAX_SHUSH_MINUTES, minutes))
         until = (now if now is not None else time.time()) + minutes * 60
@@ -159,7 +156,6 @@ class Store:
                 "UPDATE channels SET shushed_until = NULL WHERE channel_id = ?", (channel_id,)
             )
 
-
     def channel_is_shushed(self, channel_id: str, now: float | None = None) -> bool:
         with self.connection() as connection:
             row = connection.execute(
@@ -174,7 +170,7 @@ class Store:
         return True
 
     def top_current(self, limit: int = 10) -> list[dict]:
-        with self._connection() as connection:
+        with self.connection() as connection:
             rows = connection.execute(
                 "SELECT user_id, display_name, current_streak, longest_streak, total_meows "
                 "FROM users WHERE current_streak > 0 "
@@ -182,7 +178,6 @@ class Store:
                 (limit,),
             ).fetchall()
         return [dict(row) for row in rows]
-
 
     def meow_count_since(self, since_ts: float) -> int:
         with self.connection() as connection:
@@ -216,10 +211,9 @@ class Store:
             }
             for row in rows
         ]
-
     def channel_name(self, channel_id: str) -> str:
         with self.connection() as connection:
-             row = connection.execute(
+            row = connection.execute(
                 "SELECT name FROM channels WHERE channel_id = ?", (channel_id,)
             ).fetchone()
         return row["name"] if row is not None else ""
@@ -245,7 +239,7 @@ class Store:
         return result
 
     def top_longest(self, limit: int = 10) -> list[dict]:
-        with self._connection() as connection:
+        with self.connection() as connection:
             rows = connection.execute(
                 "SELECT user_id, display_name, current_streak, longest_streak, total_meows "
                 "FROM users WHERE longest_streak > 0 "
@@ -264,7 +258,7 @@ class Store:
                 raise ValueError
         except (OSError, TypeError, ValueError):
             user_ids = []
-        with self._transaction() as connection:
+        with self.transaction() as connection:
             for user_id in user_ids:
                 connection.execute(
                     "INSERT INTO users(user_id, opted_out, first_meow_at) VALUES (?, 1, ?) "
@@ -273,4 +267,3 @@ class Store:
                 )
         os.replace(legacy, legacy.with_name(legacy.name + ".migrated"))
         return len(user_ids)
-    

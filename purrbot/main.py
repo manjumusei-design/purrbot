@@ -5,10 +5,11 @@ import sys
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-from purrbot import commands, config, events
+from purrbot import commands, config, events, healthcheck
 from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
 from purrbot.store import Store
+
 
 def main() -> int:
     if not config.BOT_TOKEN or not config.APP_TOKEN:
@@ -31,7 +32,9 @@ def main() -> int:
     event_log = EventLog(config.state_path("events.jsonl"))
     events.register(app, store, memory, event_log)
     commands.register(app, store, event_log)
-    SocketModeHandler(app, config.APP_TOKEN).start()
+    handler = SocketModeHandler(app, config.APP_TOKEN)
+    healthcheck.start_from_env(lambda: bool(handler.client.is_connected()))
+    handler.start()
     return 0
 
 
