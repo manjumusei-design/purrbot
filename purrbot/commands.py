@@ -2,19 +2,20 @@ import random
 import time
 from datetime import UTC, datetime, timedelta
 
-from purrbot import content, images, providers
+from purrbot import content, images, pacing, providers
 from purrbot.catify import catify
 from purrbot.eventlog import EventLog
-from purrbot.store import Store
 from purrbot.store import DEFAULT_SHUSH_MINUTES, Store
 
 
 def _fresh_cat_fact_text() -> str:
     return content.CAT_FACT_PREFIX + images.fetch_cat_fact()
 
+
 def _channel_label(store: Store, channel_id: str) -> str:
     name = store.channel_name(channel_id)
     return f"#{name}" if name else content.FEUD_UNKNOWN_CHANNEL
+
 
 def _age_text(timestamp: float | None, now: float) -> str:
     if timestamp is None:
@@ -31,8 +32,9 @@ def _respond_plain(respond, text: str) -> None:
     ]
     respond(blocks=blocks, text=text)
 
+
 def register(app, store: Store, event_log: EventLog) -> None:
-    def _log_command(command, outcome: str = "ok") ->None:
+    def _log_command(command, outcome: str = "ok") -> None:
         event_log.record(
             command["command"],
             command.get("channel_id"),
@@ -78,9 +80,15 @@ def register(app, store: Store, event_log: EventLog) -> None:
         raw_text = command.get("text", "").strip()
         if not raw_text:
             respond(text=content.CATIFY_EMPTY_HINT)
+            _log_command(command, "hint")
             return
         said = catify(raw_text)
-        pacing.post(say, command["channel_id"], text=f"<@{command['user_id']}> said {said}", mrkdwn=False)
+        posted = pacing.post(
+            say,
+            command["channel_id"],
+            text=f"<@{command['user_id']}> said {said}",
+        )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.command("/purrbot-httpcat")
     def httpcat(ack, say, respond, command) -> None:
@@ -88,38 +96,45 @@ def register(app, store: Store, event_log: EventLog) -> None:
         raw_code = command.get("text", "").strip()
         if not raw_code:
             respond(text=content.HTTPCAT_MISSING_CODE)
+            _log_command(command, "hint")
             return
         if not raw_code.isdigit():
             respond(text=content.HTTPCAT_NOT_A_NUMBER)
+            _log_command(command, "hint")
             return
         code = int(raw_code)
         if code not in content.STATUS_CODES:
             respond(text=content.HTTPCAT_UNKNOWN_CODE)
+            _log_command(command, "hint")
             return
-        pacing.post(say, command["channel_id"], blocks=images.status_picture_blocks(code))
+        posted = pacing.post(say, command["channel_id"], blocks=images.status_picture_blocks(code))
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.command("/cat_gif")
     def cat_gif(ack, say, command) -> None:
         ack()
-        pacing.post(
+        posted = pacing.post(
             say,
             command["channel_id"],
             text=content.CAT_GIF_PICTURE_TITLE,
-            blocks = images.cat_gif_picture_blocks(),
+            blocks=images.cat_gif_picture_blocks(),
         )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.command("/purrbot-cat-fact")
     def cat_fact(ack, say, command) -> None:
         ack()
-        pacing.post(
+        fact_text = _fresh_cat_fact_text()
+        posted = pacing.post(
             say,
             command["channel_id"],
             text=fact_text,
             blocks=images.cat_fact_blocks(fact_text),
         )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.action(content.CAT_FACT_BUTTON_ACTION_ID)
-    def refresh_cat_fact(ack, respond) -> None:
+    def refresh_cat_fact(ack, respond, body) -> None:
         ack()
         fact_text = _fresh_cat_fact_text()
         respond(
@@ -127,47 +142,32 @@ def register(app, store: Store, event_log: EventLog) -> None:
             text=fact_text,
             blocks=images.cat_fact_blocks(fact_text),
         )
+        _log_action(body, "action_cat_fact")
 
-    @app.command("/purrbot_button")
+    @app.command("/purrbot-button")
     def meow_button(ack, say, command) -> None:
         ack()
-        picture = providers.cat_images.picture()
-        pacing.post(
+        posted = pacing.post(
             say,
             command["channel_id"],
             text=content.MEOW_BUTTON_LABEL,
             blocks=images.meow_button_blocks(),
         )
+        _log_command(command, "ok" if posted else "dropped")
 
     @app.action(content.MEOW_BUTTON_ACTION_ID)
     def press_meow_button(ack, body, say) -> None:
         ack()
         message = body["message"]
-        pacing.post(
+        posted = pacing.post(
             say,
             body["channel"]["id"],
             text=random.choice(content.BUTTON_PHRASES),
             thread_ts=message.get("thread_ts") or message["ts"],
         )
+        _log_action(body, "action_meow_button", "ok" if posted else "dropped")
 
-    @app.command("/purrbot-help")
-    def help_command(ack, respond) -> None:
-        ack()
-        respond(text=content.HELP_TEXT, mrkdwn = False)
-
-    @app.command("/purrbot-optout")
-    def optout(ack, respond, command) -> None:
-        ack()
-        store.opt_out(command["user_id"])
-        respond(text=content.OPTOUT_CONFIRM)
-
-    @app.command("/purrbot-optin")
-    def optin(ack, respond, command) -> None:
-        ack()
-        store.opt_out(command["user_id"])
-        respond(text=content.OPTIN_CONFIRM)
-
-    @app.command("streak")
+    @app.command("/streak")
     def streak_command(ack, respond, command) -> None:
         ack()
         user = store.user(command["user_id"])
@@ -183,77 +183,6 @@ def register(app, store: Store, event_log: EventLog) -> None:
             )
         )
         _log_command(command)
-
-    @app.command("/purrbot-shush")
-    def shush_command(ack, respond, command) -> None:
-        ack()
-        raw_minutes = command.get("text", "").strip()
-        if not raw_minutes:
-            minutes = DEFAULT_SHUSH_MINUTES
-        else:
-            try:
-                minutes = int(raw_minutes)
-            except ValueError:
-                respond(text=content.SHUSH_BAD_MINUTES)
-                return
-        channel_id = command["channel_id"]
-        if minutes == 0:
-            store.clear_channel_shush(channel_id)
-            respond(text=content.SHUSH_BAD_MINUTES)
-            return
-        until = store.set_channel_shush(channel_id, minutes)
-        until_text = datetime.fromtimestamp(until).strftime("%H:%M")
-        respond(text=content.SHUSH_CONFIRM.format(time=until_text))
-
-    @app.command("/purrbot-health")
-    def health_command(ack, respond) -> None:
-        ack()
-        now = time.time()
-        lines = [content.HEALTH_TITLE]
-        for provider in (providers.cat_images, providers.duck_images):
-            lines.append(
-                content.HEALTH_LINE.format(
-                    name=provider.name,
-                    state=provider.breaker.state,
-                    success=_age_text(provider.last_success, now),
-                    failure=_age_text(provider.last_failure, now),
-                )
-            )
-        respond(text="\n".join(lines), mrkdwn = False)
-        _log_command(command)
-
-
-    @app.command("/purrbot-feud")
-    def feud_command(ack, respond, command) -> None:
-        ack()
-        since = (datetime.now(UTC) - timedelta(days=7)).timestamp()
-        feud = store.feud(since)
-        cats = feud["cat"]["count"]
-        ducks = feud["duck"]["count"]
-        lines = [content.FEUD_TITLE, content.FEUD_TOTALS.format(cats=cats, ducks=ducks)]
-        if cats == 0 and ducks == 0:
-            lines.append(content.FEUD_EMPTY)
-        elif cats == ducks:
-            lines.append(content.FEUD_TIE)
-        elif cats > ducks:
-            lines.append(content.FEUD_CATS_WIN)
-        else:
-            lines.append(content.FEUD_DUCKS_WIN)
-        for side, template in (
-            ("cat", content.FEUD_CAT_CHANNEL),
-            ("duck", content.FEUD_DUCK_CHANNEL),
-        ):
-            champion = feud[side]["top_channel"]
-            if champion:
-                lines.append(
-                    template.format(
-                        channel=_channel_label(store, champion),
-                        count=feud[side]["top_channel_count"],
-                    )
-                )
-        respond(text="\n".join(lines))
-        _log_command(command)
-
 
     @app.command("/leaderboard")
     def leaderboard_command(ack, respond, command) -> None:
@@ -289,6 +218,36 @@ def register(app, store: Store, event_log: EventLog) -> None:
         respond(text=title, blocks=blocks)
         _log_command(command)
 
+    @app.command("/purrbot-feud")
+    def feud_command(ack, respond, command) -> None:
+        ack()
+        since = (datetime.now(UTC) - timedelta(days=7)).timestamp()
+        feud = store.feud(since)
+        cats = feud["cat"]["count"]
+        ducks = feud["duck"]["count"]
+        lines = [content.FEUD_TITLE, content.FEUD_TOTALS.format(cats=cats, ducks=ducks)]
+        if cats == 0 and ducks == 0:
+            lines.append(content.FEUD_EMPTY)
+        elif cats == ducks:
+            lines.append(content.FEUD_TIE)
+        elif cats > ducks:
+            lines.append(content.FEUD_CATS_WIN)
+        else:
+            lines.append(content.FEUD_DUCKS_WIN)
+        for side, template in (
+            ("cat", content.FEUD_CAT_CHANNEL),
+            ("duck", content.FEUD_DUCK_CHANNEL),
+        ):
+            champion = feud[side]["top_channel"]
+            if champion:
+                lines.append(
+                    template.format(
+                        channel=_channel_label(store, champion),
+                        count=feud[side]["top_channel_count"],
+                    )
+                )
+        respond(text="\n".join(lines))
+        _log_command(command)
 
     @app.command("/purrbot-help")
     def help_command(ack, respond, command) -> None:
@@ -325,12 +284,11 @@ def register(app, store: Store, event_log: EventLog) -> None:
                 return
         channel_id = command["channel_id"]
         if minutes == 0:
-            shush.unmute(channel_id)
+            store.clear_channel_shush(channel_id)
             respond(text=content.SHUSH_CANCELLED)
             _log_command(command, "unmuted")
             return
-        until = shush.mute(channel_id, minutes)
-        # server-local time is the owner's clock today; after deploy it's the vps clock
+        until = store.set_channel_shush(channel_id, minutes)
         until_text = datetime.fromtimestamp(until).strftime("%H:%M")
         respond(text=content.SHUSH_CONFIRM.format(time=until_text))
         _log_command(command, "muted")
