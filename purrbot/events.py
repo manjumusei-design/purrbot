@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from slack_sdk.errors import SlackApiError
 
-from purrbot import ai, config, content, detection, images, pacing, providers
+from purrbot import ai, config, content, detection, images, pacing, providers, streaks
 from purrbot.eventlog import EventLog
 from purrbot.memory import ConversationMemory
 from purrbot.store import Store
@@ -14,7 +14,7 @@ from purrbot.titles import PictureTitles
 DM_DEDUPE_WINDOW_SIZE = 1000
 _seen_dm_ids: dict[str, None] = {}
 _seen_dm_lock = threading.Lock()
-_seeded_users : set[str] = set()
+_seeded_users: set[str] = set()
 _seeded_lock = threading.Lock()
 
 
@@ -29,14 +29,12 @@ def _load_reaction_pools(client) -> dict[str, tuple[str, ...]]:
 def register(
     app,
     store: Store,
-    shush: ShushStore,
     memory: ConversationMemory,
     event_log: EventLog,
     chooser=random.choice,
 ) -> None:
     persona = ai.CatPersona(config.AI_API_KEY, config.AI_MODEL, config.AI_URL) if config.AI_API_KEY else None
     titles = PictureTitles()
-
     bot_user_id = app.client.auth_test()["user_id"]
     reaction_pools = _load_reaction_pools(app.client)
 
@@ -56,7 +54,6 @@ def register(
             return
         _reflex(event, say, client, titles, event_log, store, reaction_pools, chooser)
 
-
     @app.event("reaction_added")
     def handle_reaction_added(event, say, client) -> None:
         if event.get("user") == bot_user_id:
@@ -75,7 +72,7 @@ def register(
             store,
             client,
             event.get("user"),
-            item["channe"],
+            item["channel"],
             f"reaction:{event['event_ts']}",
             event["event_ts"],
             kind,
@@ -96,7 +93,7 @@ def register(
             started,
             {"provider": source, **_streak_extra(outcome)},
         )
-        
+
     @app.event("app_mention")
     def handle_app_mention(event, say) -> None:
         started = time.perf_counter()
@@ -105,7 +102,7 @@ def register(
             event_log,
             "app_mention",
             event["channel"],
-            event.get["user"],
+            event.get("user"),
             "posted" if posted else "dropped",
             started,
         )
@@ -120,7 +117,7 @@ def register(
         started = time.perf_counter()
         try:
             client.views_publish(
-                user_id = user_id,
+                user_id=user_id,
                 view=_home_view(store, user_id, datetime.now(UTC)),
             )
         except SlackApiError:
@@ -138,6 +135,7 @@ def reflex_allowed(store: Store, user_id: str | None, channel_id: str) -> bool:
         return False
     return True
 
+
 def _message_key(event) -> str:
     return event.get("client_msg_id") or event["ts"]
 
@@ -153,13 +151,13 @@ def _dm_already_seen(message_id: str) -> bool:
 
 
 def _record(
-        event_log: EventLog,
-        kind:str,
-        channel_id: str | None,
-        user_id: str | None,
-        outcome: str,
-        started: float,
-        extra: dict | None = None,
+    event_log: EventLog,
+    kind: str,
+    channel_id: str | None,
+    user_id: str | None,
+    outcome: str,
+    started: float,
+    extra: dict | None = None,
 ) -> None:
     event_log.record(
         kind,
@@ -171,13 +169,13 @@ def _record(
     )
 
 
-
 def _cat_or_duck_kind(text: str) -> str | None:
     if detection.cat_word_in(text):
         return "cat"
     if detection.duck_word_in(text):
         return "duck"
     return None
+
 
 def _reflex(
     event,
@@ -261,22 +259,16 @@ def _reflex(
         _react(client, event, reaction_pools["cat"], chooser)
 
 
-def _reaction_kind(reaction: str) -> str | None:
-    if reaction == content.CAT_EMOJI:
-        return "cat"
-    if reaction == content.DUCK_EMOJI:
-        return "duck"
-    return None
-
 def _dm_reflex(
-        event,
-        say,
-        client,
-        titles: PictureTitles,
-        event_log: EventLog,
-        store: Store,
+    event,
+    say,
+    client,
+    titles: PictureTitles,
+    event_log: EventLog,
+    store: Store,
     reaction_pools: dict[str, tuple[str, ...]] | None = None,
     chooser=random.choice,
+) -> None:
     kind = _cat_or_duck_kind(event.get("text", ""))
     if kind is None:
         return
@@ -315,12 +307,18 @@ def _dm_reflex(
         {"provider": source, **_streak_extra(outcome)},
     )
 
+
+def _reaction_kind(reaction: str) -> str | None:
+    return content.emoji_kind(reaction.lower())
+
+
 def _streak_extra(outcome: dict) -> dict:
     return {"streak": outcome["outcome"], "current_streak": outcome["current"]}
 
+
 def _home_view(store: Store, user_id: str, now_utc: datetime) -> dict:
     user = store.user(user_id)
-    if user is None or user["total_meows"] ==0:
+    if user is None or user["total_meows"] == 0:
         streak_text = content.STREAK_HOME_EMPTY
     else:
         streak_text = content.STREAK_HOME_STATS.format(
@@ -361,6 +359,7 @@ def _home_view(store: Store, user_id: str, now_utc: datetime) -> dict:
         ],
     }
 
+
 def _feud_line(feud: dict) -> str:
     cats = feud["cat"]["count"]
     ducks = feud["duck"]["count"]
@@ -373,6 +372,7 @@ def _feud_line(feud: dict) -> str:
     else:
         template = content.STREAK_HOME_FEUD_DUCKS
     return template.format(cats=cats, ducks=ducks)
+
 
 def _post_cat(
     say,
@@ -406,17 +406,17 @@ def _post_duck(
     return picture.source, posted
 
 
-
 def _reaction_reflex(
     item,
     reaction: str,
     say,
     titles: PictureTitles,
 ) -> tuple[str, str, bool] | None:
-    if reaction == content.CAT_EMOJI:
+    kind = _reaction_kind(reaction)
+    if kind == "cat":
         source, posted = _post_cat(say, item["channel"], item["ts"], titles)
         return "reaction_cat", source, posted
-    if reaction == content.DUCK_EMOJI:
+    if kind == "duck":
         source, posted = _post_duck(say, item["channel"], item["ts"], titles)
         return "reaction_duck", source, posted
     return None
@@ -442,16 +442,16 @@ def _react(client, event, pool: tuple[str, ...], chooser=random.choice) -> None:
 
 
 def _answer_dm(
-        event,
-        say,
-        client,
-        persona: ai.CatPersona | None,
-        memory: ConversationMemory,
-        event_log: EventLog,
-        store: Store,
-        titles: PictureTitles,
+    event,
+    say,
+    client,
+    persona: ai.CatPersona | None,
+    memory: ConversationMemory,
+    event_log: EventLog,
+    store: Store,
+    titles: PictureTitles,
     reaction_pools: dict[str, tuple[str, ...]] | None = None,
-    chooser=random.choice
+    chooser=random.choice,
 ) -> None:
     user_id = event.get("user") or event["channel"]
     _dm_reflex(event, say, client, titles, event_log, store, reaction_pools, chooser)
@@ -475,10 +475,6 @@ def _answer_dm(
     reply = persona.reply(messages)
     memory.append(user_id, "assistant", reply)
     memory.flush()
-    messages = memory.history(user_id)
-    reply = persona.reply(messages)
-    memory.append(user_id, "assistant", reply)
-    memory.flush()
     posted = pacing.post(say, event["channel"], text=reply)
     _record(
         event_log,
@@ -492,6 +488,10 @@ def _answer_dm(
 
 
 def _first_contact(memory: ConversationMemory, user_id: str, client, event) -> None:
+    with _seeded_lock:
+        if user_id in _seeded_users:
+            return
+        _seeded_users.add(user_id)
     try:
         history = client.conversations_history(
             channel=event["channel"], limit=config.AI_CONTEXT_MESSAGE_LIMIT
@@ -502,10 +502,10 @@ def _first_contact(memory: ConversationMemory, user_id: str, client, event) -> N
 
 
 def _seed_memory(
-        memory: ConversationMemory,
-        user_id: str,
-        slack_messages,
-        current_ts: str,
+    memory: ConversationMemory,
+    user_id: str,
+    slack_messages,
+    current_ts: str,
 ) -> None:
     for message in reversed(slack_messages):
         if message.get("ts") == current_ts:

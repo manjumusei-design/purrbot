@@ -29,7 +29,7 @@ class _JsonImageProvider:
         discovery_url: str,
         fallbacks: tuple[tuple[str, str], ...],
         now: Callable[[], float] = time.time,
-        fetch: Callable[..., request.Response] = requests.get,
+        fetch: Callable[..., requests.Response] = requests.get,
     ) -> None:
         self.name = name
         self.breaker = CircuitBreaker(now=now)
@@ -39,10 +39,9 @@ class _JsonImageProvider:
         self._discovery_url = discovery_url
         self._fallbacks = fallbacks
         self._fallback_index = 0
-        self.fallback_lock = threading.Lock()
+        self._fallback_lock = threading.Lock()
         self._now = now
         self._fetch = fetch
-
 
     def picture(self) -> Picture:
         if self.breaker.allow():
@@ -54,18 +53,17 @@ class _JsonImageProvider:
                 self.breaker.record_failure()
             else:
                 self.last_success = self._now()
-                self.breaker.record_success
+                self.breaker.record_success()
                 return Picture(url, self._discovery_source)
         source, url = self._next_fallback()
         return Picture(url, source)
 
-
     def _next_fallback(self) -> tuple[str, str]:
-        source, url = self._fallbacks[self._fallback_index % len(self._fallbacks)]
         with self._fallback_lock:
             source, url = self._fallbacks[self._fallback_index % len(self._fallbacks)]
             self._fallback_index += 1
         return source, url
+
 
 class CatImages(_JsonImageProvider):
     def __init__(
@@ -103,6 +101,7 @@ class DuckImages(_JsonImageProvider):
             now=now,
             fetch=fetch,
         )
+
 
 cat_images = CatImages()
 duck_images = DuckImages()
