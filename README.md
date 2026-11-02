@@ -64,8 +64,6 @@ docker compose build
 docker compose up -d
 ```
 
-The full VPS runbook, state-volume notes, and update flow live in [DEPLOY.md](DEPLOY.md).
-
 ## environment
 
 `.env` in the repo root (don't have one? copy `.env.example`):
